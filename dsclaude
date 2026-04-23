@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# dsclaude — launch Claude Code on DeepSeek with both models ready.
+#
+# Reads DEEPSEEK_API_KEY from the environment first, then falls back to
+# ~/.zshrc / ~/.bashrc / ~/.bash_profile / ~/.profile if not already exported.
+#
+# Quick start (no install needed):
+#   chmod +x dsclaude
+#   ./dsclaude
+#
+# Optional — make it globally available:
+#   sudo mv dsclaude /usr/local/bin/ && sudo chmod +x /usr/local/bin/dsclaude
+#
+# Use:
+#   dsclaude                  # start on deepseek-chat  (fast default)
+#   dsclaude think            # start on deepseek-reasoner (thinking mode)
+#   dsclaude -r               # alias for `dsclaude think`
+#   dsclaude long             # request a 512K context window (DeepSeek long-context)
+#   dsclaude long think       # 512K + reasoner
+#   dsclaude --help           # any remaining flag is forwarded to claude
+#
+# Optional env overrides (take precedence over the positional aliases):
+#   DSCLAUDE_CTX=512000       # set CLAUDE_CODE_MAX_CONTEXT_TOKENS and DISABLE_COMPACT=1
+#   DSCLAUDE_OUTPUT=8000      # cap output tokens via CLAUDE_CODE_MAX_OUTPUT_TOKENS
+#
+# In-session switch:
+#   /model deepseek-reasoner  # switch to thinking mode
+#   /model deepseek-chat      # switch back
+#
+set -euo pipefail
+
+extract_key_from_file() {
+  local file="$1"
+  [ -f "$file" ] || return 1
+  grep -E '^[[:space:]]*(export[[:space:]]+)?DEEPSEEK_API_KEY=' "$file" \
+    | tail -n1 \
+    | sed -E 's/^[[:space:]]*(export[[:space:]]+)?DEEPSEEK_API_KEY=//' \
+    | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'
+}
+
+API_KEY="${DEEPSEEK_API_KEY:-}"
+if [ -z "$API_KEY" ]; then
+  for f in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+    candidate="$(extract_key_from_file "$f" || true)"
+    if [ -n "${candidate:-}" ]; then
+      API_KEY="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ -z "$API_KEY" ]; then
+  echo "❌ DEEPSEEK_API_KEY not found." >&2
+  echo "   Add one line to ~/.zshrc or ~/.bashrc:" >&2
+  echo "     export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx" >&2
+  exit 1
+fi
+
+# Parse positional aliases: `long` (500K context) and `think` / `reasoner` / `-r`
+LONG_CTX=0
+MODEL="deepseek-chat"
+OTHER_MODEL="deepseek-reasoner"
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    long)
+      LONG_CTX=1
+      shift
+      ;;
+    think|reasoner|-r)
+      MODEL="deepseek-reasoner"
+      OTHER_MODEL="deepseek-chat"
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+export ANTHROPIC_BASE_URL="https://api.deepseek.com/anthropic"
+export ANTHROPIC_AUTH_TOKEN="$API_KEY"
+export API_TIMEOUT_MS="600000"
+export ANTHROPIC_MODEL="$MODEL"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="deepseek-chat"
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+
+# Expose the other DeepSeek model inside `/model` picker so you can switch mid-session.
+export ANTHROPIC_CUSTOM_MODEL_OPTION="$OTHER_MODEL"
+export ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="$OTHER_MODEL"
+if [ "$OTHER_MODEL" = "deepseek-reasoner" ]; then
+  export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="DeepSeek thinking mode — complex reasoning"
+else
+  export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="DeepSeek non-thinking mode — fast default"
+fi
+
+# Optional context-window override. Env > positional > unset (leave Claude Code defaults).
+CTX="${DSCLAUDE_CTX:-}"
+if [ -z "$CTX" ] && [ "$LONG_CTX" = "1" ]; then
+  CTX="512000"
+fi
+if [ -n "$CTX" ]; then
+  export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$CTX"
+  export DISABLE_COMPACT=1
+fi
+
+# Optional output cap.
+if [ -n "${DSCLAUDE_OUTPUT:-}" ]; then
+  export CLAUDE_CODE_MAX_OUTPUT_TOKENS="$DSCLAUDE_OUTPUT"
+fi
+
+banner="🚀 Claude Code on DeepSeek  →  $MODEL"
+[ -n "$CTX" ] && banner="$banner  |  ctx=$CTX"
+echo "$banner  (switch mid-session via /model)"
+exec claude "$@"
