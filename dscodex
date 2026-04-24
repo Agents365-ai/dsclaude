@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# dscodex — launch OpenAI Codex CLI against DeepSeek's OpenAI-compatible API.
+#
+# Fully self-contained: this script does NOT modify ~/.codex/config.toml.
+# The DeepSeek provider is injected via codex's `-c key=value` overrides,
+# so nothing persists between runs and other Codex configs stay untouched.
+#
+# Uses DeepSeek's OpenAI-compatible endpoint (Chat Completions wire),
+# which is separate from the Anthropic endpoint used by dsclaude.
+#
+# Reads DEEPSEEK_API_KEY from the environment first, then falls back to
+# ~/.zshrc / ~/.bashrc / ~/.bash_profile / ~/.profile if not already exported.
+#
+# Quick start:
+#   chmod +x dscodex
+#   ./dscodex
+#
+# Optional — make it globally available:
+#   sudo mv dscodex /usr/local/bin/ && sudo chmod +x /usr/local/bin/dscodex
+#
+# Use:
+#   dscodex                  # start on deepseek-v4-pro  (default, full reasoning)
+#   dscodex fast             # start on deepseek-v4-flash (cheaper / faster)
+#   dscodex exec "do X"      # any remaining args are forwarded to codex (e.g. `exec`, `--help`)
+#
+# Caveats vs. native OpenAI:
+#   - DeepSeek speaks Chat Completions only, so wire_api is pinned to "chat".
+#     Codex features that require the Responses API (reasoning effort,
+#     richer tool streaming) may be degraded.
+#
+set -euo pipefail
+
+extract_key_from_file() {
+  local file="$1"
+  [ -f "$file" ] || return 1
+  grep -E '^[[:space:]]*(export[[:space:]]+)?DEEPSEEK_API_KEY=' "$file" \
+    | tail -n1 \
+    | sed -E 's/^[[:space:]]*(export[[:space:]]+)?DEEPSEEK_API_KEY=//' \
+    | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'
+}
+
+API_KEY="${DEEPSEEK_API_KEY:-}"
+if [ -z "$API_KEY" ]; then
+  for f in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+    candidate="$(extract_key_from_file "$f" || true)"
+    if [ -n "${candidate:-}" ]; then
+      API_KEY="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ -z "$API_KEY" ]; then
+  echo "❌ DEEPSEEK_API_KEY not found." >&2
+  echo "   Add one line to ~/.zshrc or ~/.bashrc:" >&2
+  echo "     export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx" >&2
+  exit 1
+fi
+
+PRO_MODEL="deepseek-v4-pro"
+FLASH_MODEL="deepseek-v4-flash"
+MAIN_MODEL="$PRO_MODEL"
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    fast|flash)
+      MAIN_MODEL="$FLASH_MODEL"
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+# Codex reads the API key from whatever env var the provider's `env_key` names.
+export DEEPSEEK_API_KEY="$API_KEY"
+
+# Inline TOML provider definition (no ~/.codex/config.toml mutation).
+PROVIDER_DEF='{name="DeepSeek",base_url="https://api.deepseek.com/v1",env_key="DEEPSEEK_API_KEY",wire_api="chat",request_max_retries=4}'
+
+echo "🚀 Codex on DeepSeek  →  $MAIN_MODEL"
+exec codex \
+  -c "model_providers.deepseek=$PROVIDER_DEF" \
+  -c "model_provider=\"deepseek\"" \
+  -c "model=\"$MAIN_MODEL\"" \
+  "$@"
