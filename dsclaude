@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# dsclaude — launch Claude Code on DeepSeek with both models ready.
+# dsclaude — launch Claude Code on DeepSeek's Anthropic-compatible API.
+#
+# Follows the official guide:
+#   https://api-docs.deepseek.com/guides/anthropic_api
+#   https://api-docs.deepseek.com/guides/coding_agents
 #
 # Reads DEEPSEEK_API_KEY from the environment first, then falls back to
 # ~/.zshrc / ~/.bashrc / ~/.bash_profile / ~/.profile if not already exported.
@@ -12,20 +16,24 @@
 #   sudo mv dsclaude /usr/local/bin/ && sudo chmod +x /usr/local/bin/dsclaude
 #
 # Use:
-#   dsclaude                  # start on deepseek-chat  (fast default)
-#   dsclaude think            # start on deepseek-reasoner (thinking mode)
-#   dsclaude -r               # alias for `dsclaude think`
-#   dsclaude long             # request a 512K context window (DeepSeek long-context)
-#   dsclaude long think       # 512K + reasoner
+#   dsclaude                  # start on deepseek-v4-pro  (default, full reasoning)
+#   dsclaude fast             # start on deepseek-v4-flash (cheaper / faster)
+#   dsclaude long             # request a 1M context window (DeepSeek V4 long-context)
+#   dsclaude long fast        # 1M + flash
 #   dsclaude --help           # any remaining flag is forwarded to claude
 #
+# Backward-compat aliases (kept for older muscle memory — v4-pro is unified
+# thinking/non-thinking, so these all resolve to deepseek-v4-pro today):
+#   think | reasoner | -r     # same as default
+#
 # Optional env overrides (take precedence over the positional aliases):
-#   DSCLAUDE_CTX=512000       # set CLAUDE_CODE_MAX_CONTEXT_TOKENS and DISABLE_COMPACT=1
+#   DSCLAUDE_CTX=1048576      # set CLAUDE_CODE_MAX_CONTEXT_TOKENS and DISABLE_COMPACT=1
 #   DSCLAUDE_OUTPUT=8000      # cap output tokens via CLAUDE_CODE_MAX_OUTPUT_TOKENS
+#   DSCLAUDE_EFFORT=max       # CLAUDE_CODE_EFFORT_LEVEL (default: max, per DeepSeek docs)
 #
 # In-session switch:
-#   /model deepseek-reasoner  # switch to thinking mode
-#   /model deepseek-chat      # switch back
+#   /model deepseek-v4-flash  # switch to the fast/haiku tier
+#   /model deepseek-v4-pro    # switch back to pro
 #
 set -euo pipefail
 
@@ -56,10 +64,14 @@ if [ -z "$API_KEY" ]; then
   exit 1
 fi
 
-# Parse positional aliases: `long` (500K context) and `think` / `reasoner` / `-r`
+# DeepSeek V4 model names (per DeepSeek docs, 2026-04).
+PRO_MODEL="deepseek-v4-pro"
+FLASH_MODEL="deepseek-v4-flash"
+
+# Positional aliases: `long` (1M context) and `fast` (flash as main).
 LONG_CTX=0
-MODEL="deepseek-chat"
-OTHER_MODEL="deepseek-reasoner"
+MAIN_MODEL="$PRO_MODEL"
+HAIKU_MODEL="$FLASH_MODEL"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -67,9 +79,13 @@ while [ $# -gt 0 ]; do
       LONG_CTX=1
       shift
       ;;
+    fast|flash)
+      MAIN_MODEL="$FLASH_MODEL"
+      shift
+      ;;
     think|reasoner|-r)
-      MODEL="deepseek-reasoner"
-      OTHER_MODEL="deepseek-chat"
+      # Backward compat — v4-pro handles both thinking and non-thinking.
+      MAIN_MODEL="$PRO_MODEL"
       shift
       ;;
     --)
@@ -82,26 +98,38 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# Pick the "other" model to surface in Claude Code's /model picker so you can
+# switch mid-session without restarting.
+if [ "$MAIN_MODEL" = "$PRO_MODEL" ]; then
+  OTHER_MODEL="$FLASH_MODEL"
+  OTHER_DESC="DeepSeek V4 Flash — fast / cheap haiku tier"
+else
+  OTHER_MODEL="$PRO_MODEL"
+  OTHER_DESC="DeepSeek V4 Pro — full reasoning"
+fi
+
 export ANTHROPIC_BASE_URL="https://api.deepseek.com/anthropic"
 export ANTHROPIC_AUTH_TOKEN="$API_KEY"
 export API_TIMEOUT_MS="600000"
-export ANTHROPIC_MODEL="$MODEL"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="deepseek-chat"
+export ANTHROPIC_MODEL="$MAIN_MODEL"
+export ANTHROPIC_DEFAULT_OPUS_MODEL="$MAIN_MODEL"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="$MAIN_MODEL"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="$HAIKU_MODEL"
+export CLAUDE_CODE_SUBAGENT_MODEL="$MAIN_MODEL"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+export CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK=1
+export CLAUDE_CODE_EFFORT_LEVEL="${DSCLAUDE_EFFORT:-max}"
 
-# Expose the other DeepSeek model inside `/model` picker so you can switch mid-session.
+# Expose the other DeepSeek model inside the `/model` picker.
 export ANTHROPIC_CUSTOM_MODEL_OPTION="$OTHER_MODEL"
 export ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="$OTHER_MODEL"
-if [ "$OTHER_MODEL" = "deepseek-reasoner" ]; then
-  export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="DeepSeek thinking mode — complex reasoning"
-else
-  export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="DeepSeek non-thinking mode — fast default"
-fi
+export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="$OTHER_DESC"
 
-# Optional context-window override. Env > positional > unset (leave Claude Code defaults).
+# Optional context-window override. Env > positional > unset (Claude Code default).
+# DeepSeek V4 Pro supports up to 1,048,576 input tokens.
 CTX="${DSCLAUDE_CTX:-}"
 if [ -z "$CTX" ] && [ "$LONG_CTX" = "1" ]; then
-  CTX="512000"
+  CTX="1048576"
 fi
 if [ -n "$CTX" ]; then
   export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$CTX"
@@ -113,7 +141,7 @@ if [ -n "${DSCLAUDE_OUTPUT:-}" ]; then
   export CLAUDE_CODE_MAX_OUTPUT_TOKENS="$DSCLAUDE_OUTPUT"
 fi
 
-banner="🚀 Claude Code on DeepSeek  →  $MODEL"
+banner="🚀 Claude Code on DeepSeek  →  $MAIN_MODEL"
 [ -n "$CTX" ] && banner="$banner  |  ctx=$CTX"
 echo "$banner  (switch mid-session via /model)"
 exec claude "$@"
