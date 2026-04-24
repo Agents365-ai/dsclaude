@@ -10,13 +10,8 @@
 |------|-------|------|------|
 | **[dsclaude](dsclaude)** | Claude Code | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro`（默认，统一推理）· `deepseek-v4-flash`（快速 / haiku 档位） |
 | **[dscodex](dscodex)** | OpenAI Codex CLI | DeepSeek API（OpenAI 兼容端点） | `deepseek-v4-pro`（默认）· `deepseek-v4-flash`（快速） |
-| **[qwclaude](qwclaude)** | Claude Code | 本地 Ollama（内置 Anthropic↔Ollama 代理） | `qwen3.6-27b`（稠密默认）· `qwen3.6:35b-a3b`（MoE 思考模式） |
 
-Claude Code 启动器（`dsclaude`、`qwclaude`）：
-
-- 在 Claude Code 的 `/model` 选择器中暴露备选模型，支持会话中热切换。
-- 设置 `ANTHROPIC_DEFAULT_HAIKU_MODEL`，让后台/轻量任务走快模型。
-- 支持可选的环境变量覆盖上下文窗口和输出 token 上限。
+`dsclaude` 会在 Claude Code 的 `/model` 选择器中暴露备选模型，支持会话中热切换；同时设置 `ANTHROPIC_DEFAULT_HAIKU_MODEL`，让后台/轻量任务走快模型；并支持可选的环境变量覆盖上下文窗口和输出 token 上限。
 
 `dscodex` 通过 Codex 的 `-c` 命令行覆盖注入 DeepSeek `model_providers` 条目，**不会**修改 `~/.codex/config.toml`，与原有 OpenAI Codex 配置并存无影响。
 
@@ -33,13 +28,13 @@ Claude Code 启动器（`dsclaude`、`qwclaude`）：
 ```bash
 git clone https://github.com/Agents365-ai/xxclaude.git
 cd xxclaude
-chmod +x dsclaude dscodex qwclaude
+chmod +x dsclaude dscodex
 ```
 
 可选 — 设为全局命令：
 
 ```bash
-sudo mv dsclaude dscodex qwclaude /usr/local/bin/
+sudo mv dsclaude dscodex /usr/local/bin/
 ```
 
 ### dsclaude
@@ -72,24 +67,6 @@ dscodex exec "写一个脚本 ..."    # 其余参数全部转发给 codex
 ```
 
 脚本通过 `codex -c 'model_providers.deepseek={...}'` 注入 provider 配置，`base_url=https://api.deepseek.com/v1`、`wire_api="chat"`。由于 DeepSeek 的 OpenAI 兼容端点只支持 Chat Completions，所以依赖 Responses API 的 Codex 特性（reasoning-effort 旋钮、更完整的工具流式）会被削弱。
-
-### qwclaude
-
-前置条件 — 本地已运行 Ollama 并拉取好模型：
-
-```bash
-ollama pull qwen3.6-27b        # 稠密 27B，快速默认
-ollama pull qwen3.6:35b-a3b    # MoE 35B（激活 3B），思考模式
-```
-
-```bash
-qwclaude                 # 以 qwen3.6-27b 启动（稠密，快速默认）
-qwclaude think           # 以 qwen3.6:35b-a3b 启动（MoE 思考模式）
-```
-
-默认启用 **256K 上下文窗口**（`num_ctx=262144` + `CLAUDE_CODE_MAX_CONTEXT_TOKENS=262144` + `DISABLE_COMPACT=1`）。可通过 `QWCLAUDE_CTX=131072 qwclaude` 覆盖。
-
-会话中切换：`/model qwen3.6-27b` ↔ `/model qwen3.6:35b-a3b`。
 
 ## 开源协议
 

@@ -10,13 +10,8 @@ A small collection of shell scripts that point [Claude Code](https://claude.ai/c
 |--------|-------|---------|--------|
 | **[dsclaude](dsclaude)** | Claude Code | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro` (default, unified reasoning) · `deepseek-v4-flash` (fast / haiku tier) |
 | **[dscodex](dscodex)** | OpenAI Codex CLI | DeepSeek API (OpenAI-compatible endpoint) | `deepseek-v4-pro` (default) · `deepseek-v4-flash` (fast) |
-| **[qwclaude](qwclaude)** | Claude Code | Local Ollama (via embedded Anthropic↔Ollama proxy) | `qwen3.6-27b` (dense default) · `qwen3.6:35b-a3b` (MoE thinking) |
 
-The Claude Code launchers (`dsclaude`, `qwclaude`):
-
-- Expose the alternate model in Claude Code's `/model` picker so you can hot-swap mid-session.
-- Set `ANTHROPIC_DEFAULT_HAIKU_MODEL` so background/cheap tasks route to the fast model.
-- Honor optional env overrides for context window and output token limits.
+`dsclaude` exposes the alternate model in Claude Code's `/model` picker so you can hot-swap mid-session, sets `ANTHROPIC_DEFAULT_HAIKU_MODEL` so background/cheap tasks route to the fast model, and honors optional env overrides for context window and output token limits.
 
 `dscodex` registers DeepSeek as a Codex `model_providers` entry via inline `-c` overrides — it never touches `~/.codex/config.toml`, so running it alongside the default OpenAI Codex setup is safe.
 
@@ -33,13 +28,13 @@ The Claude Code launchers (`dsclaude`, `qwclaude`):
 ```bash
 git clone https://github.com/Agents365-ai/xxclaude.git
 cd xxclaude
-chmod +x dsclaude dscodex qwclaude
+chmod +x dsclaude dscodex
 ```
 
 Make them globally available (optional):
 
 ```bash
-sudo mv dsclaude dscodex qwclaude /usr/local/bin/
+sudo mv dsclaude dscodex /usr/local/bin/
 ```
 
 ### dsclaude
@@ -72,24 +67,6 @@ dscodex exec "write a quick script that ..."   # any remaining args forward to c
 ```
 
 Under the hood it injects the DeepSeek provider via `codex -c 'model_providers.deepseek={...}'` with `base_url=https://api.deepseek.com/v1` and `wire_api="chat"`. DeepSeek's OpenAI endpoint only speaks Chat Completions, so Codex features that require the Responses API (reasoning-effort dial, richer tool streaming) may be degraded.
-
-### qwclaude
-
-Prerequisites — Ollama running locally with the models already pulled:
-
-```bash
-ollama pull qwen3.6-27b        # dense 27B, fast default
-ollama pull qwen3.6:35b-a3b    # MoE 35B (3B active), thinking mode
-```
-
-```bash
-qwclaude                 # start on qwen3.6-27b (dense, fast default)
-qwclaude think           # start on qwen3.6:35b-a3b (MoE thinking mode)
-```
-
-Defaults to a **256K context window** (`num_ctx=262144` + `CLAUDE_CODE_MAX_CONTEXT_TOKENS=262144` + `DISABLE_COMPACT=1`). Override with `QWCLAUDE_CTX=131072 qwclaude`.
-
-In-session: `/model qwen3.6-27b` ↔ `/model qwen3.6:35b-a3b`.
 
 ## License
 
