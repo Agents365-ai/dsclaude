@@ -8,7 +8,7 @@
 
 | 脚本 | 后端 | 模型 |
 |------|------|------|
-| **[dsclaude](dsclaude)** | DeepSeek API（Anthropic 兼容端点） | `deepseek-chat`（默认）· `deepseek-reasoner`（思考模式） |
+| **[dsclaude](dsclaude)** | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro`（默认，统一推理）· `deepseek-v4-flash`（快速 / haiku 档位） |
 | **[qwclaude](qwclaude)** | 本地 Ollama（内置 Anthropic↔Ollama 代理） | `qwen3.6-27b`（稠密默认）· `qwen3.6:35b-a3b`（MoE 思考模式） |
 
 两个脚本都会：
@@ -41,16 +41,20 @@ sudo mv dsclaude qwclaude /usr/local/bin/
 
 ### dsclaude
 
+遵循 DeepSeek 官方指南：[Integrate with Coding Agents](https://api-docs.deepseek.com/guides/coding_agents) / [Anthropic API](https://api-docs.deepseek.com/guides/anthropic_api)。
+
 ```bash
 export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # 添加到 ~/.zshrc 或 ~/.bashrc
 
-dsclaude                 # 以 deepseek-chat 启动（快速默认）
-dsclaude think           # 以 deepseek-reasoner 启动（思考模式）
-dsclaude long            # 申请 512K 上下文窗口
-dsclaude long think      # 512K + reasoner
+dsclaude                 # 以 deepseek-v4-pro 启动（默认，完整推理能力）
+dsclaude fast            # 以 deepseek-v4-flash 启动（更便宜/更快）
+dsclaude long            # 申请 1M 上下文窗口（1,048,576 tokens）
+dsclaude long fast       # 1M + flash
 ```
 
-会话中切换：`/model deepseek-reasoner` ↔ `/model deepseek-chat`。
+脚本会自动按 DeepSeek 官方建议导出全套环境变量：`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`、Opus/Sonnet/Haiku 模型映射、`CLAUDE_CODE_SUBAGENT_MODEL` 以及 `CLAUDE_CODE_EFFORT_LEVEL=max`（可用 `DSCLAUDE_EFFORT` 覆盖）。
+
+会话中切换：`/model deepseek-v4-flash` ↔ `/model deepseek-v4-pro`。
 
 ### qwclaude
 

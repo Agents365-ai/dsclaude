@@ -8,7 +8,7 @@ A small collection of shell scripts that point [Claude Code](https://claude.ai/c
 
 | Script | Backend | Models |
 |--------|---------|--------|
-| **[dsclaude](dsclaude)** | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-chat` (default) · `deepseek-reasoner` (thinking) |
+| **[dsclaude](dsclaude)** | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro` (default, unified reasoning) · `deepseek-v4-flash` (fast / haiku tier) |
 | **[qwclaude](qwclaude)** | Local Ollama (via embedded Anthropic↔Ollama proxy) | `qwen3.6-27b` (dense default) · `qwen3.6:35b-a3b` (MoE thinking) |
 
 Both scripts:
@@ -41,16 +41,20 @@ sudo mv dsclaude qwclaude /usr/local/bin/
 
 ### dsclaude
 
+Follows the official DeepSeek guide: [Integrate with Coding Agents](https://api-docs.deepseek.com/guides/coding_agents) / [Anthropic API](https://api-docs.deepseek.com/guides/anthropic_api).
+
 ```bash
 export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # add this line to ~/.zshrc or ~/.bashrc
 
-dsclaude                 # start on deepseek-chat (fast default)
-dsclaude think           # start on deepseek-reasoner (thinking mode)
-dsclaude long            # request a 512K context window
-dsclaude long think      # 512K + reasoner
+dsclaude                 # start on deepseek-v4-pro (default, full reasoning)
+dsclaude fast            # start on deepseek-v4-flash (cheaper / faster)
+dsclaude long            # request a 1M context window (1,048,576 tokens)
+dsclaude long fast       # 1M + flash
 ```
 
-In-session: `/model deepseek-reasoner` ↔ `/model deepseek-chat`.
+Sets the DeepSeek-recommended env vars under the hood: `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`, Opus/Sonnet/Haiku model mappings, `CLAUDE_CODE_SUBAGENT_MODEL`, and `CLAUDE_CODE_EFFORT_LEVEL=max` (override via `DSCLAUDE_EFFORT`).
+
+In-session: `/model deepseek-v4-flash` ↔ `/model deepseek-v4-pro`.
 
 ### qwclaude
 
