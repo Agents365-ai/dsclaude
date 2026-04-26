@@ -32,8 +32,8 @@
 #   DSCLAUDE_EFFORT=max       # CLAUDE_CODE_EFFORT_LEVEL (default: max, per DeepSeek docs)
 #
 # In-session switch:
-#   /model deepseek-v4-flash  # switch to the fast/haiku tier
-#   /model deepseek-v4-pro    # switch back to pro
+#   /model deepseek-v4-flash      # switch to the fast/haiku tier
+#   /model deepseek-v4-pro[1m]    # switch back to pro
 #
 set -euo pipefail
 
@@ -65,7 +65,7 @@ if [ -z "$API_KEY" ]; then
 fi
 
 # DeepSeek V4 model names (per DeepSeek docs, 2026-04).
-PRO_MODEL="deepseek-v4-pro"
+PRO_MODEL="deepseek-v4-pro[1m]"
 FLASH_MODEL="deepseek-v4-flash"
 
 # Positional aliases: `long` (1M context) and `fast` (flash as main).
@@ -115,7 +115,7 @@ export ANTHROPIC_MODEL="$MAIN_MODEL"
 export ANTHROPIC_DEFAULT_OPUS_MODEL="$MAIN_MODEL"
 export ANTHROPIC_DEFAULT_SONNET_MODEL="$MAIN_MODEL"
 export ANTHROPIC_DEFAULT_HAIKU_MODEL="$HAIKU_MODEL"
-export CLAUDE_CODE_SUBAGENT_MODEL="$MAIN_MODEL"
+export CLAUDE_CODE_SUBAGENT_MODEL="$FLASH_MODEL"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 export CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK=1
 export CLAUDE_CODE_EFFORT_LEVEL="${DSCLAUDE_EFFORT:-max}"

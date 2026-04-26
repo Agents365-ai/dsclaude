@@ -8,7 +8,7 @@ A small collection of shell scripts that point [Claude Code](https://claude.ai/c
 
 | Script | Agent | Backend | Models |
 |--------|-------|---------|--------|
-| **[dsclaude](dsclaude)** | Claude Code | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro` (default, unified reasoning) · `deepseek-v4-flash` (fast / haiku tier) |
+| **[dsclaude](dsclaude)** | Claude Code | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro[1m]` (default, unified reasoning) · `deepseek-v4-flash` (fast / haiku tier) |
 
 `dsclaude` exposes the alternate model in Claude Code's `/model` picker so you can hot-swap mid-session, sets `ANTHROPIC_DEFAULT_HAIKU_MODEL` so background/cheap tasks route to the fast model, and honors optional env overrides for context window and output token limits.
 
@@ -49,7 +49,9 @@ dsclaude long fast       # 1M + flash
 
 Sets the DeepSeek-recommended env vars under the hood: `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`, Opus/Sonnet/Haiku model mappings, `CLAUDE_CODE_SUBAGENT_MODEL`, and `CLAUDE_CODE_EFFORT_LEVEL=max` (override via `DSCLAUDE_EFFORT`).
 
-In-session: `/model deepseek-v4-flash` ↔ `/model deepseek-v4-pro`.
+In-session: `/model deepseek-v4-flash` ↔ `/model deepseek-v4-pro[1m]`.
+
+> **Note:** Enabling the 1M context window in Claude Code requires the `[1m]` suffix on the model name (e.g., `deepseek-v4-pro[1m]`). The `dsclaude long` command requests this automatically — see usage above.
 
 ## License
 

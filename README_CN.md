@@ -8,7 +8,7 @@
 
 | 脚本 | Agent | 后端 | 模型 |
 |------|-------|------|------|
-| **[dsclaude](dsclaude)** | Claude Code | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro`（默认，统一推理）· `deepseek-v4-flash`（快速 / haiku 档位） |
+| **[dsclaude](dsclaude)** | Claude Code | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro[1m]`（默认，统一推理）· `deepseek-v4-flash`（快速 / haiku 档位） |
 
 `dsclaude` 会在 Claude Code 的 `/model` 选择器中暴露备选模型，支持会话中热切换；同时设置 `ANTHROPIC_DEFAULT_HAIKU_MODEL`，让后台/轻量任务走快模型；并支持可选的环境变量覆盖上下文窗口和输出 token 上限。
 
@@ -49,7 +49,9 @@ dsclaude long fast       # 1M + flash
 
 脚本会自动按 DeepSeek 官方建议导出全套环境变量：`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`、Opus/Sonnet/Haiku 模型映射、`CLAUDE_CODE_SUBAGENT_MODEL` 以及 `CLAUDE_CODE_EFFORT_LEVEL=max`（可用 `DSCLAUDE_EFFORT` 覆盖）。
 
-会话中切换：`/model deepseek-v4-flash` ↔ `/model deepseek-v4-pro`。
+会话中切换：`/model deepseek-v4-flash` ↔ `/model deepseek-v4-pro[1m]`。
+
+> **注意：** 使用 Claude Code 时，开启 1M 上下文需要设置模型名为 `deepseek-v4-pro[1m]`（即加上 `[1m]` 后缀）。`dsclaude long` 命令会自动完成此设置 — 见上方用法。
 
 ## 开源协议
 
