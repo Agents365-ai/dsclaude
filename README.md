@@ -51,7 +51,7 @@ Sets the DeepSeek-recommended env vars under the hood: `ANTHROPIC_BASE_URL=https
 
 In-session: `/model deepseek-v4-flash` ↔ `/model deepseek-v4-pro[1m]`.
 
-> **Note:** Enabling the 1M context window in Claude Code requires the `[1m]` suffix on the model name (e.g., `deepseek-v4-pro[1m]`). The `dsclaude long` command requests this automatically — see usage above.
+> **Note:** Both `deepseek-v4-pro` and `deepseek-v4-flash` natively support a 1M-token context window. When using Claude Code, the pro model requires the `[1m]` suffix (`deepseek-v4-pro[1m]`) to enable it; flash does not need the suffix. The `dsclaude long` command handles this automatically — see usage above.
 
 ## License
 

@@ -51,7 +51,7 @@ dsclaude long fast       # 1M + flash
 
 会话中切换：`/model deepseek-v4-flash` ↔ `/model deepseek-v4-pro[1m]`。
 
-> **注意：** 使用 Claude Code 时，开启 1M 上下文需要设置模型名为 `deepseek-v4-pro[1m]`（即加上 `[1m]` 后缀）。`dsclaude long` 命令会自动完成此设置 — 见上方用法。
+> **注意：** `deepseek-v4-pro` 和 `deepseek-v4-flash` 均原生支持 1M token 上下文窗口。在 Claude Code 中，pro 模型需要加 `[1m]` 后缀（`deepseek-v4-pro[1m]`）来开启，flash 则无需后缀。`dsclaude long` 命令会自动完成此设置 — 见上方用法。
 
 ## 开源协议
 
