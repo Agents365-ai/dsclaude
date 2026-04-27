@@ -17,7 +17,7 @@
 #
 # Use:
 #   dsclaude                  # start on deepseek-v4-pro  (default, full reasoning)
-#   dsclaude fast             # start on deepseek-v4-flash (cheaper / faster)
+#   dsclaude fast             # start on deepseek-v4-flash[1m] (cheaper / faster)
 #   dsclaude long             # request a 1M context window (DeepSeek V4 long-context)
 #   dsclaude long fast        # 1M + flash
 #   dsclaude --help           # any remaining flag is forwarded to claude
@@ -32,7 +32,7 @@
 #   DSCLAUDE_EFFORT=max       # CLAUDE_CODE_EFFORT_LEVEL (default: max, per DeepSeek docs)
 #
 # In-session switch:
-#   /model deepseek-v4-flash      # switch to the fast/haiku tier
+#   /model deepseek-v4-flash[1m]  # switch to the fast/haiku tier
 #   /model deepseek-v4-pro[1m]    # switch back to pro
 #
 set -euo pipefail
@@ -66,7 +66,7 @@ fi
 
 # DeepSeek V4 model names (per DeepSeek docs, 2026-04).
 PRO_MODEL="deepseek-v4-pro[1m]"
-FLASH_MODEL="deepseek-v4-flash"
+FLASH_MODEL="deepseek-v4-flash[1m]"
 
 # Positional aliases: `long` (1M context) and `fast` (flash as main).
 LONG_CTX=0

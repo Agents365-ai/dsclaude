@@ -8,7 +8,7 @@
 
 | 脚本 | Agent | 后端 | 模型 |
 |------|-------|------|------|
-| **[dsclaude](dsclaude)** | Claude Code | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro[1m]`（默认，统一推理）· `deepseek-v4-flash`（快速 / haiku 档位） |
+| **[dsclaude](dsclaude)** | Claude Code | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro[1m]`（默认，统一推理）· `deepseek-v4-flash[1m]`（快速 / haiku 档位） |
 
 `dsclaude` 会在 Claude Code 的 `/model` 选择器中暴露备选模型，支持会话中热切换；同时设置 `ANTHROPIC_DEFAULT_HAIKU_MODEL`，让后台/轻量任务走快模型；并支持可选的环境变量覆盖上下文窗口和输出 token 上限。
 
@@ -42,16 +42,16 @@ sudo mv dsclaude /usr/local/bin/
 export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # 添加到 ~/.zshrc 或 ~/.bashrc
 
 dsclaude                 # 以 deepseek-v4-pro 启动（默认，完整推理能力）
-dsclaude fast            # 以 deepseek-v4-flash 启动（更便宜/更快）
+dsclaude fast            # 以 deepseek-v4-flash[1m] 启动（更便宜/更快）
 dsclaude long            # 申请 1M 上下文窗口（1,048,576 tokens）
 dsclaude long fast       # 1M + flash
 ```
 
 脚本会自动按 DeepSeek 官方建议导出全套环境变量：`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`、Opus/Sonnet/Haiku 模型映射、`CLAUDE_CODE_SUBAGENT_MODEL` 以及 `CLAUDE_CODE_EFFORT_LEVEL=max`（可用 `DSCLAUDE_EFFORT` 覆盖）。
 
-会话中切换：`/model deepseek-v4-flash` ↔ `/model deepseek-v4-pro[1m]`。
+会话中切换：`/model deepseek-v4-flash[1m]` ↔ `/model deepseek-v4-pro[1m]`。
 
-> **注意：** `deepseek-v4-pro` 和 `deepseek-v4-flash` 均原生支持 1M token 上下文窗口。在 Claude Code 中，pro 模型需要加 `[1m]` 后缀（`deepseek-v4-pro[1m]`）来开启，flash 则无需后缀。`dsclaude long` 命令会自动完成此设置 — 见上方用法。
+> **注意：** `deepseek-v4-pro` 和 `deepseek-v4-flash` 均原生支持 1M token 上下文窗口。在 Claude Code 中，两个模型都需要加 `[1m]` 后缀来开启（`deepseek-v4-pro[1m]`、`deepseek-v4-flash[1m]`）。`dsclaude` 已自动完成此设置。
 
 ## 开源协议
 

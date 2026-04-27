@@ -8,7 +8,7 @@ A small collection of shell scripts that point [Claude Code](https://claude.ai/c
 
 | Script | Agent | Backend | Models |
 |--------|-------|---------|--------|
-| **[dsclaude](dsclaude)** | Claude Code | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro[1m]` (default, unified reasoning) · `deepseek-v4-flash` (fast / haiku tier) |
+| **[dsclaude](dsclaude)** | Claude Code | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro[1m]` (default, unified reasoning) · `deepseek-v4-flash[1m]` (fast / haiku tier) |
 
 `dsclaude` exposes the alternate model in Claude Code's `/model` picker so you can hot-swap mid-session, sets `ANTHROPIC_DEFAULT_HAIKU_MODEL` so background/cheap tasks route to the fast model, and honors optional env overrides for context window and output token limits.
 
@@ -42,16 +42,16 @@ Follows the official DeepSeek guide: [Integrate with Coding Agents](https://api-
 export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # add this line to ~/.zshrc or ~/.bashrc
 
 dsclaude                 # start on deepseek-v4-pro (default, full reasoning)
-dsclaude fast            # start on deepseek-v4-flash (cheaper / faster)
+dsclaude fast            # start on deepseek-v4-flash[1m] (cheaper / faster)
 dsclaude long            # request a 1M context window (1,048,576 tokens)
 dsclaude long fast       # 1M + flash
 ```
 
 Sets the DeepSeek-recommended env vars under the hood: `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`, Opus/Sonnet/Haiku model mappings, `CLAUDE_CODE_SUBAGENT_MODEL`, and `CLAUDE_CODE_EFFORT_LEVEL=max` (override via `DSCLAUDE_EFFORT`).
 
-In-session: `/model deepseek-v4-flash` ↔ `/model deepseek-v4-pro[1m]`.
+In-session: `/model deepseek-v4-flash[1m]` ↔ `/model deepseek-v4-pro[1m]`.
 
-> **Note:** Both `deepseek-v4-pro` and `deepseek-v4-flash` natively support a 1M-token context window. When using Claude Code, the pro model requires the `[1m]` suffix (`deepseek-v4-pro[1m]`) to enable it; flash does not need the suffix. The `dsclaude long` command handles this automatically — see usage above.
+> **Note:** Both `deepseek-v4-pro` and `deepseek-v4-flash` natively support a 1M-token context window. In Claude Code, the `[1m]` suffix is required on each model name to enable it (`deepseek-v4-pro[1m]`, `deepseek-v4-flash[1m]`). `dsclaude` sets this for you.
 
 ## License
 
