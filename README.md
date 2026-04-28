@@ -1,4 +1,4 @@
-# xxclaude — Claude Code & Claude Desktop launchers for alternative backends
+# dsclaude — Claude Code & Claude Desktop launchers for alternative backends
 
 [中文文档](README_CN.md)
 
@@ -6,10 +6,11 @@ A small collection of shell scripts that point [Claude Code](https://claude.ai/c
 
 ## Scripts
 
-| Script | Agent | Backend | Models |
-|--------|-------|---------|--------|
-| **[dsclaude](dsclaude)** | Claude Code (CLI) | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro[1m]` (default, unified reasoning) · `deepseek-v4-flash[1m]` (fast / haiku tier) |
-| **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (macOS GUI) | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro` · `deepseek-v4-flash` (1M context on both) |
+| Script | Agent | Platform | Backend | Models |
+|--------|-------|----------|---------|--------|
+| **[dsclaude](dsclaude)** | Claude Code (CLI) | macOS / Linux | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro[1m]` (default, unified reasoning) · `deepseek-v4-flash[1m]` (fast / haiku tier) |
+| **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (GUI) | macOS | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro` · `deepseek-v4-flash` (1M context on both) |
+| **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows (untested) | DeepSeek API (Anthropic-compatible endpoint) | same as above |
 
 `dsclaude` exposes the alternate model in Claude Code's `/model` picker so you can hot-swap mid-session, sets `ANTHROPIC_DEFAULT_HAIKU_MODEL` so background/cheap tasks route to the fast model, and honors optional env overrides for context window and output token limits.
 
@@ -26,8 +27,8 @@ A small collection of shell scripts that point [Claude Code](https://claude.ai/c
 ## Quick start
 
 ```bash
-git clone https://github.com/Agents365-ai/xxclaude.git
-cd xxclaude
+git clone https://github.com/Agents365-ai/dsclaude.git
+cd dsclaude
 chmod +x dsclaude
 ```
 
@@ -113,6 +114,19 @@ In Gateway mode the **Cowork** and **Code** modes route to DeepSeek. The model p
 </p>
 
 > **One feature is unavailable**: classic **Chat** (claude.ai-style conversation). Chat depends on Anthropic-hosted features (memory, projects, artifacts, web search) that aren't part of the inference API surface. To use Chat, switch back to Anthropic mode via the launch chooser.
+
+#### Windows
+
+`dsclaude-desktop.ps1` is the PowerShell port. Same JSON schema, same flow:
+
+```powershell
+$env:DEEPSEEK_API_KEY = "sk-xxxxxxxxxxxxxxxxxx"
+pwsh ./dsclaude-desktop.ps1
+```
+
+Prerequisites mirror the macOS version: Claude Desktop installed, Developer Mode enabled, DeepSeek API key. The script writes to `%APPDATA%\Claude-3p\configLibrary\` instead of `~/Library/Application Support/Claude-3p/configLibrary/`.
+
+> **Untested by the maintainer.** The schema and gotchas were discovered on macOS; Anthropic ships the same Electron app on Windows so they should hold, but please [open an issue](https://github.com/Agents365-ai/dsclaude/issues) if anything misbehaves.
 
 ## License
 
