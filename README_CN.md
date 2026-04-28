@@ -13,7 +13,7 @@
 
 `dsclaude` 会在 Claude Code 的 `/model` 选择器中暴露备选模型，支持会话中热切换；同时设置 `ANTHROPIC_DEFAULT_HAIKU_MODEL`，让后台/轻量任务走快模型；并支持可选的环境变量覆盖上下文窗口和输出 token 上限。
 
-`dsclaude-desktop` 把 gateway 配置写入 Claude Desktop 的第三方推理配置目录并重启 App。运行后 Claude Desktop 进入 Cowork (3P) / Code 模式跑 DeepSeek，要切回 Anthropic 直接在启动选择器里点 "Continue with Anthropic" 即可（无需 `--revert`）。
+`dsclaude-desktop` 是 Claude Desktop **内置** "Configure Third-Party Inference" 功能（Developer 菜单）的一键配置工具。它把对话框需要你手填的那份 JSON 配置直接写好（已为 DeepSeek 预填）并重启 App。Anthropic 模式 ↔ Gateway 模式之间的切换由 Claude Desktop 启动选择器原生支持，所以脚本里没有 `--revert`。
 
 ## 兼容性
 
@@ -58,7 +58,19 @@ dsclaude long fast       # 1M + flash
 
 ### dsclaude-desktop
 
-配置 **Claude Desktop** 的推理后端指向 DeepSeek，原理是直接编辑 `~/Library/Application Support/Claude-3p/configLibrary/` 下的 JSON 配置文件并重启 App。**仅支持 macOS。**
+Claude Desktop **内置**第三方推理（Third-Party Inference）功能的一键配置工具，已为 DeepSeek 预填好。
+
+**这不是 hack 或破解。** Anthropic 在 Claude Desktop 里直接提供了 "Configure Third-Party Inference" 对话框（Developer 菜单），允许你手动把 App 指向任意 Anthropic-compatible 端点。该对话框有 6 个必填字段 + 模型列表。`dsclaude-desktop` 帮你把那个对话框会写的 JSON 配置直接写到磁盘，然后重启 App —— 省下你手点菜单填表的时间。
+
+#### 前置条件
+
+1. **已安装 Claude Desktop**（[claude.ai/download](https://claude.ai/download)）
+2. **已启用 Developer Mode**
+   - 路径：Help → Troubleshooting → Enable Developer Mode
+   - 一次即可。脚本每次运行会自动校验。
+3. **DeepSeek API Key** 在 `$DEEPSEEK_API_KEY` / shell rc 文件里，或运行时弹框输入
+
+#### 用法
 
 ```bash
 export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # 添加到 ~/.zshrc 或 ~/.bashrc
@@ -67,9 +79,40 @@ export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # 添加到 ~/.zshrc 或 ~/.bash
 ./dsclaude-desktop -h   # 帮助
 ```
 
-脚本会在 Claude Desktop 的 third-party config 中写入一个名为 `dsclaude-desktop` 的条目（与你通过 GUI 配置的其它条目共存），把 `appliedId` 指过去，然后 `killall Claude && open -a Claude` 让改动生效。
+脚本做的事：
+1. 在 `~/Library/Application Support/Claude-3p/configLibrary/` 下生成一个 entry 文件，内容为：你的 DeepSeek key、base URL `https://api.deepseek.com/anthropic`、auth scheme `bearer`、模型列表 `deepseek-v4-pro` + `deepseek-v4-flash`（均启用 1M context）
+2. 把 `_meta.json` 的 `appliedId` 指向这个 entry（你之前通过 GUI 配的其他 entry 不动）
+3. `killall Claude && open -a Claude` 让 App 重新加载配置
 
-> **重要提醒：** 一旦 third-party gateway 启用，Claude Desktop 的 **Chat** 模式就不可用了（Chat 依赖 Anthropic 托管的服务）—— 只能用 **Cowork (3P)** 和 **Code** 模式。要回到 Anthropic Chat：在 Claude Desktop 启动选择器里点 "Continue with Anthropic"。再跑一遍 `dsclaude-desktop` 就能切回 DeepSeek。
+#### 模式切换
+
+Claude Desktop 启动选择器原生支持模式切换，所以脚本不需要 `--revert`：
+
+<p align="center">
+  <img src="docs/images/launch-chooser.png" alt="Claude Desktop 启动选择器：Continue with Gateway 或 Sign in to Anthropic" width="600">
+</p>
+
+即使在 Anthropic 登录页也能直接跳回 Gateway：
+
+<p align="center">
+  <img src="docs/images/sign-in-or-gateway.png" alt="登录页底部的 'Or continue with Gateway' 链接" width="600">
+</p>
+
+切换方式：在 Claude Desktop 里点头像 → Disconnect（或登出） → 下次启动时挑另一个入口。
+
+#### 配置成功后的样子
+
+Gateway 模式下 **Cowork** 和 **Code** 都走 DeepSeek。模型选择器里能看到你的（脱敏显示的）DeepSeek 模型：
+
+<p align="center">
+  <img src="docs/images/cowork-3p-gateway.png" alt="Cowork 模式在 Gateway 下跑 DeepSeek" width="700">
+</p>
+
+<p align="center">
+  <img src="docs/images/code-3p-gateway.png" alt="Code 模式在 xxclaude 项目里跑 DeepSeek via Gateway" width="700">
+</p>
+
+> **唯一不可用的功能**：经典 **Chat**（claude.ai 风格对话）。Chat 依赖 Anthropic 托管的服务（memory / projects / artifacts / 联网搜索），这些不在 inference API 表面上，第三方 gateway 拿不到。要用 Chat 就在启动选择器选 Anthropic 模式即可。
 
 ## 开源协议
 

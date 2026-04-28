@@ -176,6 +176,28 @@ the implementation plan to 3 tasks. The `--revert` command was also removed
 because Claude Desktop's launch chooser already lets users switch between
 gateway mode and Anthropic mode without touching the config file.
 
+### Gotchas discovered during implementation
+
+After the spec was approved, three more Claude Desktop quirks turned up
+during testing. They're all handled in the script but worth noting for
+anyone reading the source:
+
+1. **Entry JSON cannot end with a trailing newline.** Claude Desktop's parser
+   throws "unknown config id" if the file ends with `}\n` instead of `}`. jq
+   always emits a trailing newline, so the script captures jq output via
+   command substitution (`$(...)` strips trailing newlines) and writes via
+   `printf '%s'`.
+2. **UUIDs must be lowercase.** macOS `uuidgen` returns uppercase UUIDs;
+   Claude's GUI writes lowercase. Even though `_meta.json` references the
+   filename and the file is on disk, Claude's "known config id" check appears
+   to be case-sensitive. The script lowercases via `tr 'A-Z' 'a-z'` defensively.
+3. **File permissions must be 0600.** Claude's GUI writes config files with
+   0600 perms (the file contains a plaintext API key). The script `chmod 600`
+   the temp file before atomic-mv to match.
+4. **Developer Mode is a hard prerequisite.** Third-party inference is gated
+   behind it. The script checks `~/Library/Application Support/Claude/developer_settings.json`
+   for `allowDevTools: true` and fails with instructions if missing.
+
 ## References
 
 - [DeepSeek Anthropic-compatible API](https://api-docs.deepseek.com/guides/anthropic_api)
