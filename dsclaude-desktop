@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# dsclaude-desktop — configure Claude Desktop to use DeepSeek as inference backend.
+#
+# Edits ~/Library/Application Support/Claude-3p/configLibrary/{_meta,<uuid>}.json
+# and restarts Claude Desktop. macOS only.
+#
+# Usage:
+#   dsclaude-desktop      # configure to DeepSeek and restart
+#   dsclaude-desktop -h   # help
+#
+# Note: Once a third-party gateway is active, Claude Desktop's Chat mode is
+# unavailable — only Cowork (3P) and Code modes work (Chat depends on
+# Anthropic-hosted features). To use Chat: at Claude Desktop's launch chooser
+# pick "Continue with Anthropic", or toggle "Skip login-mode chooser" off in
+# Developer → Configure Third-Party Inference.
+
+set -euo pipefail
+
+CONFIG_DIR="$HOME/Library/Application Support/Claude-3p/configLibrary"
+META="$CONFIG_DIR/_meta.json"
+ENTRY_NAME="dsclaude-desktop"
+BASE_URL="https://api.deepseek.com/anthropic"
+AUTH_SCHEME="bearer"
+MAIN_MODEL="deepseek-v4-pro"
+FAST_MODEL="deepseek-v4-flash"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *)
+      echo "dsclaude-desktop: unknown argument: $1" >&2
+      echo "Run 'dsclaude-desktop -h' for usage." >&2
+      exit 2
+      ;;
+  esac
+done
+
+preflight() {
+  if [[ "$(uname)" != "Darwin" ]]; then
+    echo "dsclaude-desktop: macOS only." >&2
+    exit 1
+  fi
+  if [[ ! -d "/Applications/Claude.app" ]]; then
+    echo "dsclaude-desktop: /Applications/Claude.app not found. Install from https://claude.ai/download." >&2
+    exit 1
+  fi
+  if [[ ! -x "/usr/bin/jq" ]]; then
+    echo "dsclaude-desktop: /usr/bin/jq not found (required on macOS Sonoma+)." >&2
+    exit 1
+  fi
+}
+
+# Resolves DEEPSEEK_API_KEY from (in order): env, ~/.zshrc & friends, osascript prompt.
+# Prints the key on stdout.
+resolve_api_key() {
+  if [[ -n "${DEEPSEEK_API_KEY:-}" ]]; then
+    printf '%s' "$DEEPSEEK_API_KEY"
+    return 0
+  fi
+  local rc found=""
+  for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+    [[ -r "$rc" ]] || continue
+    found="$(grep -E '^[[:space:]]*export[[:space:]]+DEEPSEEK_API_KEY=' "$rc" 2>/dev/null \
+      | tail -1 \
+      | sed -E 's/^[^=]*=//; s/^"(.*)"$/\1/; s/^'\''(.*)'\''$/\1/' \
+      || true)"
+    if [[ -n "$found" ]]; then
+      printf '%s' "$found"
+      return 0
+    fi
+  done
+  local key
+  key="$(osascript <<'APPLESCRIPT' 2>/dev/null || true
+try
+  set theKey to text returned of (display dialog ¬
+    "DeepSeek API Key not found in env or shell rc.\nPaste your DeepSeek API Key:" ¬
+    default answer "" ¬
+    with hidden answer ¬
+    with title "dsclaude-desktop")
+  return theKey
+on error
+  return ""
+end try
+APPLESCRIPT
+)"
+  if [[ -z "$key" ]]; then
+    echo "dsclaude-desktop: no DeepSeek API Key provided. Aborting." >&2
+    exit 1
+  fi
+  printf '%s' "$key"
+}
+
+preflight
+DEEPSEEK_KEY="$(resolve_api_key)"
+echo "Resolved key (length: ${#DEEPSEEK_KEY})"  # placeholder — Task 2 replaces
