@@ -5,35 +5,39 @@
 
 ## Goal
 
-A single bash script that switches Claude Desktop's third-party inference backend
-to DeepSeek, with a `--revert` mode to restore the default (no third-party).
-Companion to the existing `dsclaude` script (which targets Claude Code, not the
-desktop app).
+A single bash script that configures Claude Desktop's third-party inference
+backend to point at DeepSeek. Companion to the existing `dsclaude` script (which
+targets Claude Code, not the desktop app).
+
+No revert command: Claude Desktop natively supports both modes (Anthropic login
+and Gateway) and the user picks at launch via the in-app chooser. The script
+just plants the gateway config; the user toggles modes through Claude Desktop's
+own UI.
 
 ## Scope
 
 **In scope**
 - macOS only
-- Forward: configure Claude Desktop to use DeepSeek as gateway
-- Reverse: clear gateway, restore default
+- Configure Claude Desktop to use DeepSeek as a gateway (idempotent)
 - Restart Claude Desktop so changes take effect
 
 **Out of scope (YAGNI)**
+- Revert command (Claude Desktop's launch chooser handles this natively)
 - Windows / Linux
 - Multiple gateway backends (DeepSeek / Qwen / aihubmix toggle)
-- Recovery from a corrupted Claude Desktop config (user can reset via `Reset App Data…`)
+- Recovery from a corrupted Claude Desktop config (use `Reset App Data…`)
 
 **Important user-facing limitation (not fixable by this script)**
-- Once any third-party gateway is configured, Claude Desktop's **Chat** mode is
-  unavailable — only **Cowork (3P)** and **Code** modes work, because Chat
-  depends on Anthropic-hosted features (memory, projects, artifacts). Document
-  this in the script's help text so users aren't surprised.
+- Once any third-party gateway is configured AND active, Claude Desktop's
+  **Chat** mode is unavailable — only **Cowork (3P)** and **Code** modes work,
+  because Chat depends on Anthropic-hosted features (memory, projects,
+  artifacts). To use Chat, pick "Continue with Anthropic" in Claude Desktop's
+  launch chooser (or toggle "Skip login-mode chooser" off in the dialog).
 
 ## User-facing CLI
 
 ```
-dsclaude-desktop            # configure: switch Claude Desktop to DeepSeek
-dsclaude-desktop --revert   # revert: clear gateway, restore default
+dsclaude-desktop            # configure: plant DeepSeek gateway config and restart
 dsclaude-desktop -h         # help
 ```
 
@@ -109,34 +113,21 @@ The script writes the entry file and edits `_meta.json` to point at it.
      - open -a Claude
 
 6. Print finishing message
-     - Note: Chat mode is disabled in third-party mode (Cowork + Code only)
-     - Run `dsclaude-desktop --revert` to undo
-```
-
-## Revert flow
-
-```
-1. Pre-flight (same as forward)
-
-2. Confirmation gate
-
-3. Edit config
-     - If _meta.json doesn't exist: nothing to do, print "already vanilla"
-     - Else: set appliedId = null (keep entries[] intact for easy re-apply)
-
-4. Restart Claude Desktop
-
-5. Print finishing message
+     - Tell user Claude Desktop is restarting in gateway mode
+     - Note: Chat mode is disabled in third-party mode (Cowork + Code only).
+       To use Chat: pick "Continue with Anthropic" in launch chooser, or
+       toggle "Skip login-mode chooser" off in the Configure Third-Party
+       Inference dialog.
 ```
 
 ## Idempotency
 
-| State on entry | Forward | Revert |
-|---|---|---|
-| Fresh (no Claude-3p dir) | Create dir + entry + _meta, apply | No-op + message |
-| `appliedId: null` | Re-apply existing or new entry | No-op + message |
-| Already DeepSeek (this script's entry) | Overwrite entry's content (refresh key, models) | Set appliedId = null |
-| Other gateway entry applied (set up via UI) | Add ours alongside, set appliedId to ours | Set appliedId = null |
+| State on entry | Behavior |
+|---|---|
+| Fresh (no Claude-3p dir) | Create dir + entry + _meta, apply |
+| `appliedId: null` | Re-apply existing or new entry |
+| Already DeepSeek (this script's entry) | Overwrite entry's content (refresh key, models) |
+| Other gateway entry applied (set up via UI) | Add ours alongside, set appliedId to ours |
 
 ## Error handling
 
@@ -150,17 +141,16 @@ The script writes the entry file and edits `_meta.json` to point at it.
 No automated tests. Manual acceptance:
 
 1. **Fresh state (no Claude-3p dir)**: `rm -rf "~/Library/Application Support/Claude-3p"`, then run `./dsclaude-desktop`. Verify Claude Desktop boots in Cowork 3P / Gateway mode and chat with DeepSeek works.
-2. **Revert**: run `./dsclaude-desktop --revert`. Claude Desktop should boot in normal Anthropic mode with Chat available.
-3. **Re-apply**: run `./dsclaude-desktop` again. Verify back to gateway mode without re-prompting (key picked up from env or rc).
-4. **Idempotent revert**: run `./dsclaude-desktop --revert` twice in a row. Second run should print "already vanilla" and no-op.
-5. **Missing API key**: unset `DEEPSEEK_API_KEY` and remove from rc files, run script, verify osascript dialog fires.
+2. **Re-apply (idempotency)**: run `./dsclaude-desktop` again. Verify same UUID is reused (no second entry in `entries[]`), key/models refreshed.
+3. **Switch to Anthropic via Claude UI**: at Claude Desktop's launch chooser pick "Continue with Anthropic" — Chat should be available. Re-run `./dsclaude-desktop` to switch back to gateway.
+4. **Missing API key**: unset `DEEPSEEK_API_KEY` and remove from rc files, run script, verify osascript dialog fires.
 
 ## File layout
 
 ```
 xxclaude/
 ├── dsclaude                    # existing — Claude Code → DeepSeek
-├── dsclaude-desktop            # NEW — Claude Desktop → DeepSeek (~80 lines)
+├── dsclaude-desktop            # NEW — Claude Desktop → DeepSeek (~60 lines)
 └── docs/superpowers/
     ├── specs/2026-04-28-dsclaude-desktop-design.md   # this file
     └── plans/2026-04-28-dsclaude-desktop.md          # implementation plan
@@ -181,8 +171,10 @@ tasks and 150 lines of script. Live exploration revealed:
 4. With third-party inference active, Claude Desktop hides the **Chat** mode;
    only Cowork (3P) and Code modes are available.
 
-Pivoting from UI driving to file editing collapses the script to ~80 lines and
-the implementation plan to 4 tasks.
+Pivoting from UI driving to file editing collapses the script to ~60 lines and
+the implementation plan to 3 tasks. The `--revert` command was also removed
+because Claude Desktop's launch chooser already lets users switch between
+gateway mode and Anthropic mode without touching the config file.
 
 ## References
 
