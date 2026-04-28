@@ -11,6 +11,7 @@ A small collection of shell scripts that point [Claude Code](https://claude.ai/c
 | **[dsclaude](dsclaude)** | Claude Code (CLI) | macOS / Linux | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro[1m]` (default, unified reasoning) · `deepseek-v4-flash[1m]` (fast / haiku tier) |
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (GUI) | macOS | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro` · `deepseek-v4-flash` (1M context on both) |
 | **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows (untested) | DeepSeek API (Anthropic-compatible endpoint) | same as above |
+| **[skills/deepseek-vision](skills/deepseek-vision/)** | skill (any agent that loads SKILL.md) | macOS / Linux | DashScope (Anthropic / OpenAI-compatible) | `qwen3.6-flash` (default vision) |
 
 `dsclaude` exposes the alternate model in Claude Code's `/model` picker so you can hot-swap mid-session, sets `ANTHROPIC_DEFAULT_HAIKU_MODEL` so background/cheap tasks route to the fast model, and honors optional env overrides for context window and output token limits.
 
@@ -127,6 +128,20 @@ pwsh ./dsclaude-desktop.ps1
 Prerequisites mirror the macOS version: Claude Desktop installed, Developer Mode enabled, DeepSeek API key. The script writes to `%APPDATA%\Claude-3p\configLibrary\` instead of `~/Library/Application Support/Claude-3p/configLibrary/`.
 
 > **Untested by the maintainer.** The schema and gotchas were discovered on macOS; Anthropic ships the same Electron app on Windows so they should hold, but please [open an issue](https://github.com/Agents365-ai/dsclaude/issues) if anything misbehaves.
+
+### deepseek-vision skill
+
+A skill for giving DeepSeek (text-only) the ability to "see" images. When the active agent encounters an image file path, it calls `skills/deepseek-vision/analyze-image` which sends the image to **Qwen3.6-Flash** (DashScope) and returns a text description the agent can reason over.
+
+```bash
+export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
+
+./skills/deepseek-vision/analyze-image /path/to/screenshot.png "What error is shown?"
+```
+
+The skill works in any agent that loads `SKILL.md` files (Claude Code, Cowork, etc.). Default model is `qwen3.6-flash`; override via `DSVISION_MODEL=qwen3.6-plus` for higher quality, or `DSVISION_BASE_URL=...` for a different provider.
+
+> Why a skill instead of an MCP server: zero new dependencies (just `bash` + `curl` + `jq`), no daemon process, single markdown + bash file you can read in 2 minutes.
 
 ## License
 

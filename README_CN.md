@@ -11,6 +11,7 @@
 | **[dsclaude](dsclaude)** | Claude Code (CLI) | macOS / Linux | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro[1m]`（默认，统一推理）· `deepseek-v4-flash[1m]`（快速 / haiku 档位） |
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (GUI) | macOS | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro` · `deepseek-v4-flash`（均启用 1M 上下文） |
 | **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows（未实测） | DeepSeek API（Anthropic 兼容端点） | 同上 |
+| **[skills/deepseek-vision](skills/deepseek-vision/)** | skill（任何加载 SKILL.md 的 agent） | macOS / Linux | DashScope（OpenAI/Anthropic 兼容） | `qwen3.6-flash`（默认视觉模型） |
 
 `dsclaude` 会在 Claude Code 的 `/model` 选择器中暴露备选模型，支持会话中热切换；同时设置 `ANTHROPIC_DEFAULT_HAIKU_MODEL`，让后台/轻量任务走快模型；并支持可选的环境变量覆盖上下文窗口和输出 token 上限。
 
@@ -127,6 +128,20 @@ pwsh ./dsclaude-desktop.ps1
 前置条件与 macOS 版相同：Claude Desktop 已安装、Developer Mode 已启用、有 DeepSeek API Key。配置目录是 `%APPDATA%\Claude-3p\configLibrary\`（而非 macOS 的 `~/Library/Application Support/Claude-3p/configLibrary/`）。
 
 > **作者未在 Windows 上实测过。** Schema 和那些坑（末尾换行、UUID 小写、Developer Mode 门控）都是 macOS 上发现的；Anthropic 在 Windows 上跑的是同一份 Electron App，理论上一致，但请在 [issue 区](https://github.com/Agents365-ai/dsclaude/issues) 反馈任何异常。
+
+### deepseek-vision skill
+
+给纯文本模型（如 DeepSeek）补上"看图"能力的 skill。Agent 遇到图片路径时调 `skills/deepseek-vision/analyze-image`，脚本把图发给 **Qwen3.6-Flash** （DashScope），返回文字描述写回上下文供主模型推理。
+
+```bash
+export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
+
+./skills/deepseek-vision/analyze-image /path/to/screenshot.png "图里报的什么错？"
+```
+
+任何加载 `SKILL.md` 的 agent 都能用（Claude Code / Cowork 等）。默认模型 `qwen3.6-flash`，要更准换 `DSVISION_MODEL=qwen3.6-plus`，要换厂商改 `DSVISION_BASE_URL=...`。
+
+> 为什么是 skill 不是 MCP server：零新依赖（只用 `bash` + `curl` + `jq`）、无后台进程、单文件 2 分钟读完。
 
 ## 开源协议
 
