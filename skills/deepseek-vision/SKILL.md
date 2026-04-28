@@ -1,19 +1,23 @@
 ---
 name: deepseek-vision
-description: Use when the active model can't see images natively (e.g., DeepSeek V4) and the user references an image file path you need to understand. Calls Qwen3.6-Flash with the image and returns a text description that you can reason over.
+description: Use whenever the user references an image (local file path or http/https URL — screenshot, photo, diagram, UI capture, chart, error dialog) and you need to know what's in it to answer or act. Calls a vision model (Qwen3.6-Flash by default) via DashScope and returns a text description you can reason over. Especially important when running on a text-only backend like DeepSeek V4, but also useful as a dedicated OCR / detail extractor even when the main model is multimodal.
 ---
 
 # Deepseek Vision Helper
 
-The active model is text-only. When the user shares an image file path, do NOT try to see it directly — call this skill's `analyze-image` tool instead.
+When the user shares an image — file path or URL — and you need to understand its content, call this skill's `analyze-image` tool instead of trying to "see" it directly. The tool sends the image to a vision model and returns a text description.
 
 ## How to use
 
 ```bash
-./skills/deepseek-vision/analyze-image <image-path> [focus prompt]
+./skills/deepseek-vision/analyze-image <image-path-or-url> [focus prompt]
 ```
 
-The script prints plaintext. Read it as if you saw the image yourself, then continue your reasoning.
+Accepts:
+- A local file path (`/Users/me/screenshot.png`, `~/Desktop/diagram.jpg`, relative paths)
+- An http/https URL — passed through directly to the API, no download needed
+
+The script prints plaintext. Read it as if you saw the image yourself, then continue your reasoning. On error it prints to stderr and exits non-zero.
 
 ## Setup (one-time)
 

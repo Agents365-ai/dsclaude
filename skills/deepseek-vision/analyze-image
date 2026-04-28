@@ -1,29 +1,44 @@
 #!/usr/bin/env bash
-# analyze-image — describe a local image via Qwen3.6-Flash for text-only models.
-# Usage: analyze-image <image-path> [focus prompt]
+# analyze-image — describe an image via Qwen3.6-Flash for text-only models.
+# Usage: analyze-image <image-path-or-url> [focus prompt]
 # Requires: DASHSCOPE_API_KEY in env. Returns plaintext on stdout.
 
 set -euo pipefail
 
-IMAGE="${1:-}"
+INPUT="${1:-}"
 PROMPT="${2:-Describe this image in detail. Focus on text content, UI elements, code snippets, charts, error messages — anything a coding/agent task might care about.}"
 
-[[ -n "$IMAGE" && -f "$IMAGE" ]] || { echo "analyze-image: image not found: $IMAGE" >&2; exit 1; }
+[[ -n "$INPUT" ]] || { echo "analyze-image: missing image path or URL" >&2; exit 1; }
 [[ -n "${DASHSCOPE_API_KEY:-}" ]] || { echo "analyze-image: DASHSCOPE_API_KEY not set" >&2; exit 1; }
 
-case "$(echo "${IMAGE##*.}" | tr 'A-Z' 'a-z')" in
-  jpg|jpeg) MIME=image/jpeg ;;
-  png)      MIME=image/png  ;;
-  webp)     MIME=image/webp ;;
-  gif)      MIME=image/gif  ;;
-  *)        MIME=$(file --mime-type -b "$IMAGE") ;;
-esac
+# URL input → pass through directly (DashScope accepts public http/https URLs).
+if [[ "$INPUT" =~ ^https?:// ]]; then
+  IMAGE_URL="$INPUT"
+else
+  [[ -f "$INPUT" ]] || { echo "analyze-image: image not found: $INPUT" >&2; exit 1; }
 
-B64=$(base64 < "$IMAGE" | tr -d '\n')
+  # DashScope rejects payloads beyond ~10MB; fail early with a clear message.
+  SIZE=$(wc -c < "$INPUT" | tr -d ' ')
+  if (( SIZE > 10485760 )); then
+    echo "analyze-image: image too large ($SIZE bytes; limit 10485760). Resize and retry." >&2
+    exit 1
+  fi
+
+  case "$(echo "${INPUT##*.}" | tr 'A-Z' 'a-z')" in
+    jpg|jpeg) MIME=image/jpeg ;;
+    png)      MIME=image/png  ;;
+    webp)     MIME=image/webp ;;
+    gif)      MIME=image/gif  ;;
+    *)        MIME=$(file --mime-type -b "$INPUT") ;;
+  esac
+
+  B64=$(base64 < "$INPUT" | tr -d '\n')
+  IMAGE_URL="data:$MIME;base64,$B64"
+fi
 
 PAYLOAD=$(jq -n \
   --arg model  "${DSVISION_MODEL:-qwen3.6-flash}" \
-  --arg url    "data:$MIME;base64,$B64" \
+  --arg url    "$IMAGE_URL" \
   --arg prompt "$PROMPT" \
   '{
     model: $model,
@@ -39,6 +54,8 @@ PAYLOAD=$(jq -n \
 BASE_URL="${DSVISION_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}"
 
 RESP=$(curl -sS -X POST "$BASE_URL/chat/completions" \
+  --connect-timeout 10 \
+  --max-time 60 \
   -H "Authorization: Bearer $DASHSCOPE_API_KEY" \
   -H "Content-Type: application/json" \
   --data-raw "$PAYLOAD")
@@ -49,4 +66,12 @@ if echo "$RESP" | jq -e '.error' >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "$RESP" | jq -r '.choices[0].message.content'
+CONTENT=$(echo "$RESP" | jq -r '.choices[0].message.content // empty')
+
+if [[ -z "$CONTENT" ]]; then
+  echo "analyze-image: empty response from model" >&2
+  echo "$RESP" | jq '.' >&2
+  exit 1
+fi
+
+echo "$CONTENT"
