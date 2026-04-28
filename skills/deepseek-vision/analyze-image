@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# analyze-image — describe a local image via Qwen3.6-Flash for text-only models.
+# Usage: analyze-image <image-path> [focus prompt]
+# Requires: DASHSCOPE_API_KEY in env. Returns plaintext on stdout.
+
+set -euo pipefail
+
+IMAGE="${1:-}"
+PROMPT="${2:-Describe this image in detail. Focus on text content, UI elements, code snippets, charts, error messages — anything a coding/agent task might care about.}"
+
+[[ -n "$IMAGE" && -f "$IMAGE" ]] || { echo "analyze-image: image not found: $IMAGE" >&2; exit 1; }
+[[ -n "${DASHSCOPE_API_KEY:-}" ]] || { echo "analyze-image: DASHSCOPE_API_KEY not set" >&2; exit 1; }
+
+case "$(echo "${IMAGE##*.}" | tr 'A-Z' 'a-z')" in
+  jpg|jpeg) MIME=image/jpeg ;;
+  png)      MIME=image/png  ;;
+  webp)     MIME=image/webp ;;
+  gif)      MIME=image/gif  ;;
+  *)        MIME=$(file --mime-type -b "$IMAGE") ;;
+esac
+
+B64=$(base64 < "$IMAGE" | tr -d '\n')
+
+PAYLOAD=$(jq -n \
+  --arg model  "${DSVISION_MODEL:-qwen3.6-flash}" \
+  --arg url    "data:$MIME;base64,$B64" \
+  --arg prompt "$PROMPT" \
+  '{
+    model: $model,
+    messages: [{
+      role: "user",
+      content: [
+        { type: "image_url", image_url: { url: $url } },
+        { type: "text", text: $prompt }
+      ]
+    }]
+  }')
+
+BASE_URL="${DSVISION_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}"
+
+RESP=$(curl -sS -X POST "$BASE_URL/chat/completions" \
+  -H "Authorization: Bearer $DASHSCOPE_API_KEY" \
+  -H "Content-Type: application/json" \
+  --data-raw "$PAYLOAD")
+
+if echo "$RESP" | jq -e '.error' >/dev/null 2>&1; then
+  echo "analyze-image: API error" >&2
+  echo "$RESP" | jq '.error' >&2
+  exit 1
+fi
+
+echo "$RESP" | jq -r '.choices[0].message.content'
