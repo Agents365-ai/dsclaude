@@ -1,0 +1,211 @@
+#!/usr/bin/env bash
+# dsclaude-desktop — configure Claude Desktop to use DeepSeek as inference backend.
+#
+# Edits ~/Library/Application Support/Claude-3p/configLibrary/{_meta,<uuid>}.json
+# and restarts Claude Desktop. macOS only.
+#
+# Usage:
+#   dsclaude-desktop      # configure to DeepSeek and restart
+#   dsclaude-desktop -h   # help
+#
+# Note: Once a third-party gateway is active, Claude Desktop's Chat mode is
+# unavailable — only Cowork (3P) and Code modes work (Chat depends on
+# Anthropic-hosted features). To use Chat: at Claude Desktop's launch chooser
+# pick "Continue with Anthropic", or toggle "Skip login-mode chooser" off in
+# Developer → Configure Third-Party Inference.
+
+set -euo pipefail
+
+CONFIG_DIR="$HOME/Library/Application Support/Claude-3p/configLibrary"
+META="$CONFIG_DIR/_meta.json"
+ENTRY_NAME="dsclaude-desktop"
+BASE_URL="https://api.deepseek.com/anthropic"
+AUTH_SCHEME="bearer"
+MAIN_MODEL="deepseek-v4-pro"
+FAST_MODEL="deepseek-v4-flash"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *)
+      echo "dsclaude-desktop: unknown argument: $1" >&2
+      echo "Run 'dsclaude-desktop -h' for usage." >&2
+      exit 2
+      ;;
+  esac
+done
+
+preflight() {
+  if [[ "$(uname)" != "Darwin" ]]; then
+    echo "dsclaude-desktop: macOS only." >&2
+    exit 1
+  fi
+  if [[ ! -d "/Applications/Claude.app" ]]; then
+    echo "dsclaude-desktop: /Applications/Claude.app not found. Install from https://claude.ai/download." >&2
+    exit 1
+  fi
+  if [[ ! -x "/usr/bin/jq" ]]; then
+    echo "dsclaude-desktop: /usr/bin/jq not found (required on macOS Sonoma+)." >&2
+    exit 1
+  fi
+
+  # Claude Desktop's third-party inference is gated behind Developer Mode.
+  # The presence of allowDevTools=true in developer_settings.json is the
+  # outward signal that the user has enabled it at least once.
+  local dev_settings="$HOME/Library/Application Support/Claude/developer_settings.json"
+  if [[ ! -f "$dev_settings" ]] \
+     || ! /usr/bin/jq -e '.allowDevTools == true' "$dev_settings" >/dev/null 2>&1; then
+    cat >&2 <<'EOF'
+dsclaude-desktop: Developer Mode not enabled in Claude Desktop.
+
+Claude Desktop's third-party inference feature is gated behind Developer Mode.
+Enable it once in the GUI before running this script:
+
+  1. Open Claude Desktop
+  2. Help → Troubleshooting → Enable Developer Mode
+  3. Re-run dsclaude-desktop
+EOF
+    exit 1
+  fi
+}
+
+# Resolves DEEPSEEK_API_KEY from (in order): env, ~/.zshrc & friends, osascript prompt.
+# Prints the key on stdout.
+resolve_api_key() {
+  if [[ -n "${DEEPSEEK_API_KEY:-}" ]]; then
+    printf '%s' "$DEEPSEEK_API_KEY"
+    return 0
+  fi
+  local rc found=""
+  for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+    [[ -r "$rc" ]] || continue
+    found="$(grep -E '^[[:space:]]*export[[:space:]]+DEEPSEEK_API_KEY=' "$rc" 2>/dev/null \
+      | tail -1 \
+      | sed -E 's/^[^=]*=//; s/^"(.*)"$/\1/; s/^'\''(.*)'\''$/\1/' \
+      || true)"
+    if [[ -n "$found" ]]; then
+      printf '%s' "$found"
+      return 0
+    fi
+  done
+  local key
+  key="$(osascript <<'APPLESCRIPT' 2>/dev/null || true
+try
+  set theKey to text returned of (display dialog ¬
+    "DeepSeek API Key not found in env or shell rc.\nPaste your DeepSeek API Key:" ¬
+    default answer "" ¬
+    with hidden answer ¬
+    with title "dsclaude-desktop")
+  return theKey
+on error
+  return ""
+end try
+APPLESCRIPT
+)"
+  if [[ -z "$key" ]]; then
+    echo "dsclaude-desktop: no DeepSeek API Key provided. Aborting." >&2
+    exit 1
+  fi
+  printf '%s' "$key"
+}
+
+confirm_or_abort() {
+  echo
+  echo "About to: $1"
+  echo "Press Enter to continue, Ctrl-C to abort."
+  read -r _
+}
+
+# Write the gateway entry JSON for a given UUID via atomic temp+mv.
+# Claude Desktop's parser rejects entries with a trailing newline ("unknown
+# config id"), so we strip it.
+write_entry() {
+  local uuid="$1"
+  local entry_path="$CONFIG_DIR/${uuid}.json"
+  local tmp="${entry_path}.tmp"
+  local content
+  content="$(jq -n \
+    --arg baseUrl "$BASE_URL" \
+    --arg apiKey  "$DEEPSEEK_KEY" \
+    --arg auth    "$AUTH_SCHEME" \
+    --arg main    "$MAIN_MODEL" \
+    --arg fast    "$FAST_MODEL" \
+    '{
+       inferenceProvider: "gateway",
+       inferenceGatewayBaseUrl: $baseUrl,
+       inferenceGatewayApiKey: $apiKey,
+       inferenceGatewayAuthScheme: $auth,
+       inferenceModels: [
+         {name: $main, supports1m: true},
+         {name: $fast, supports1m: true}
+       ]
+     }')"
+  printf '%s' "$content" > "$tmp"
+  chmod 600 "$tmp"
+  mv "$tmp" "$entry_path"
+}
+
+# Ensure _meta.json has an entry named $ENTRY_NAME (creating or reusing its uuid)
+# and set appliedId to that uuid. Prints the uuid on stdout.
+ensure_meta_entry() {
+  mkdir -p "$CONFIG_DIR"
+  local existing_uuid=""
+  if [[ -f "$META" ]]; then
+    existing_uuid="$(jq -r --arg name "$ENTRY_NAME" \
+      '.entries[]? | select(.name==$name) | .id' "$META" 2>/dev/null \
+      | head -1)"
+  fi
+  local uuid
+  if [[ -n "$existing_uuid" ]]; then
+    uuid="$existing_uuid"
+  else
+    # Lowercase UUID to match Claude's own format (uuidgen returns uppercase).
+    uuid="$(uuidgen | tr 'A-Z' 'a-z')"
+  fi
+  local tmp="${META}.tmp"
+  local content
+  if [[ -f "$META" ]]; then
+    content="$(jq --arg id "$uuid" --arg name "$ENTRY_NAME" '
+      .appliedId = $id
+      | .entries = ((.entries // []) | map(select(.name != $name)) + [{id: $id, name: $name}])
+    ' "$META")"
+  else
+    content="$(jq -n --arg id "$uuid" --arg name "$ENTRY_NAME" \
+      '{appliedId: $id, entries: [{id: $id, name: $name}]}')"
+  fi
+  # Strip trailing newline — Claude's parser is picky.
+  printf '%s' "$content" > "$tmp"
+  chmod 600 "$tmp"
+  mv "$tmp" "$META"
+  printf '%s' "$uuid"
+}
+
+restart_claude() {
+  killall Claude 2>/dev/null || true
+  sleep 1
+  open -a Claude
+}
+
+preflight
+DEEPSEEK_KEY="$(resolve_api_key)"
+confirm_or_abort "configure Claude Desktop to use DeepSeek ($BASE_URL) and restart it."
+UUID="$(ensure_meta_entry)"
+write_entry "$UUID"
+restart_claude
+
+cat <<'EOF'
+
+Done. Claude Desktop is restarting with DeepSeek as the inference backend.
+
+Heads up: Chat mode is unavailable while a third-party gateway is active.
+You'll see Cowork (3P) and Code modes only. To use Chat:
+
+  - At launch chooser, pick "Continue with Anthropic", OR
+  - In Developer → Configure Third-Party Inference, toggle off "Skip
+    login-mode chooser" (default is off, so the chooser should appear)
+
+Re-run dsclaude-desktop any time to refresh the gateway config.
+EOF

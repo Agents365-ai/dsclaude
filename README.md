@@ -1,16 +1,19 @@
-# xxclaude — Claude Code launchers for alternative backends
+# xxclaude — Claude Code & Claude Desktop launchers for alternative backends
 
 [中文文档](README_CN.md)
 
-A small collection of shell scripts that point [Claude Code](https://claude.ai/code) at non-Anthropic model backends while keeping the native TUI, tools, and `/model` switcher.
+A small collection of shell scripts that point [Claude Code](https://claude.ai/code) and Claude Desktop at non-Anthropic model backends.
 
 ## Scripts
 
 | Script | Agent | Backend | Models |
 |--------|-------|---------|--------|
-| **[dsclaude](dsclaude)** | Claude Code | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro[1m]` (default, unified reasoning) · `deepseek-v4-flash[1m]` (fast / haiku tier) |
+| **[dsclaude](dsclaude)** | Claude Code (CLI) | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro[1m]` (default, unified reasoning) · `deepseek-v4-flash[1m]` (fast / haiku tier) |
+| **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (macOS GUI) | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro` · `deepseek-v4-flash` (1M context on both) |
 
 `dsclaude` exposes the alternate model in Claude Code's `/model` picker so you can hot-swap mid-session, sets `ANTHROPIC_DEFAULT_HAIKU_MODEL` so background/cheap tasks route to the fast model, and honors optional env overrides for context window and output token limits.
+
+`dsclaude-desktop` is a one-command configurator for Claude Desktop's built-in **Configure Third-Party Inference** feature (Developer menu). It writes the same config that the dialog would write — pre-filled for DeepSeek — and restarts the app. Claude Desktop's launch chooser handles switching back to Anthropic mode natively, so there's no `--revert` flag.
 
 ## Compatibility
 
@@ -52,6 +55,64 @@ Sets the DeepSeek-recommended env vars under the hood: `ANTHROPIC_BASE_URL=https
 In-session: `/model deepseek-v4-flash[1m]` ↔ `/model deepseek-v4-pro[1m]`.
 
 > **Note:** Both `deepseek-v4-pro` and `deepseek-v4-flash` natively support a 1M-token context window. In Claude Code, the `[1m]` suffix is required on each model name to enable it (`deepseek-v4-pro[1m]`, `deepseek-v4-flash[1m]`). `dsclaude` sets this for you.
+
+### dsclaude-desktop
+
+A one-command configurator for Claude Desktop's **built-in third-party inference** feature, pre-filled for DeepSeek.
+
+This is **not** a hack or workaround. Anthropic ships a "Configure Third-Party Inference" dialog inside Claude Desktop (Developer menu) where you can manually point the app at any Anthropic-compatible endpoint. The dialog has six required fields and a model list. `dsclaude-desktop` writes the same JSON config that the dialog would write, then restarts the app — saving you the menu navigation.
+
+#### Prerequisites
+
+1. **Claude Desktop installed** (download from [claude.ai/download](https://claude.ai/download))
+2. **Developer Mode enabled** in Claude Desktop
+   - Help → Troubleshooting → Enable Developer Mode
+   - Only needs to be done once. The script verifies this on each run.
+3. **DeepSeek API Key** in `$DEEPSEEK_API_KEY`, your shell rc, or paste at the prompt
+
+#### Usage
+
+```bash
+export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # or add to ~/.zshrc
+
+./dsclaude-desktop      # configure and restart Claude Desktop
+./dsclaude-desktop -h   # help
+```
+
+What it does:
+1. Generates an entry under `~/Library/Application Support/Claude-3p/configLibrary/` with your DeepSeek key, base URL `https://api.deepseek.com/anthropic`, auth scheme `bearer`, and `deepseek-v4-pro` + `deepseek-v4-flash` (1M context) as the model list
+2. Sets `appliedId` to your entry in `_meta.json` (existing entries are preserved)
+3. Restarts Claude Desktop with `killall Claude && open -a Claude`
+
+#### Switching modes
+
+Claude Desktop's launch chooser handles mode switching natively — no `--revert` flag needed:
+
+<p align="center">
+  <img src="docs/images/launch-chooser.png" alt="Claude Desktop launch chooser: Continue with Gateway or Sign in to Anthropic" width="600">
+</p>
+
+Even on the Anthropic sign-in page you can swap back to Gateway:
+
+<p align="center">
+  <img src="docs/images/sign-in-or-gateway.png" alt="Sign In page with 'Or continue with Gateway' link at bottom" width="600">
+</p>
+
+To switch: click your profile in Claude Desktop → **Disconnect** (or sign out) → at next launch, pick the other option.
+
+#### What you get
+
+In Gateway mode the **Cowork** and **Code** modes route to DeepSeek. The model picker shows your masked DeepSeek models:
+
+<p align="center">
+  <img src="docs/images/cowork-3p-gateway.png" alt="Cowork mode running on DeepSeek via Gateway" width="700">
+</p>
+
+<p align="center">
+  <img src="docs/images/code-3p-gateway.png" alt="Code mode in xxclaude project running on DeepSeek via Gateway" width="700">
+</p>
+
+> **One feature is unavailable**: classic **Chat** (claude.ai-style conversation). Chat depends on Anthropic-hosted features (memory, projects, artifacts, web search) that aren't part of the inference API surface. To use Chat, switch back to Anthropic mode via the launch chooser.
 
 ## License
 
