@@ -51,6 +51,25 @@ preflight() {
     echo "dsclaude-desktop: /usr/bin/jq not found (required on macOS Sonoma+)." >&2
     exit 1
   fi
+
+  # Claude Desktop's third-party inference is gated behind Developer Mode.
+  # The presence of allowDevTools=true in developer_settings.json is the
+  # outward signal that the user has enabled it at least once.
+  local dev_settings="$HOME/Library/Application Support/Claude/developer_settings.json"
+  if [[ ! -f "$dev_settings" ]] \
+     || ! /usr/bin/jq -e '.allowDevTools == true' "$dev_settings" >/dev/null 2>&1; then
+    cat >&2 <<'EOF'
+dsclaude-desktop: Developer Mode not enabled in Claude Desktop.
+
+Claude Desktop's third-party inference feature is gated behind Developer Mode.
+Enable it once in the GUI before running this script:
+
+  1. Open Claude Desktop
+  2. Help → Troubleshooting → Enable Developer Mode
+  3. Re-run dsclaude-desktop
+EOF
+    exit 1
+  fi
 }
 
 # Resolves DEEPSEEK_API_KEY from (in order): env, ~/.zshrc & friends, osascript prompt.
