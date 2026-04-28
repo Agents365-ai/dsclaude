@@ -16,28 +16,21 @@ When the user shares an image — file path or URL — and you need to understan
 Accepts:
 - A local file path (`/Users/me/screenshot.png`, `~/Desktop/diagram.jpg`, relative paths)
 - An http/https URL — passed through directly to the API, no download needed
-- `latest` — auto-resolves to the most recent image (PNG/JPG/JPEG/WEBP/HEIC) in `~/Desktop`. Use this after the user takes a screenshot with `Cmd+Shift+4` (the macOS default saves to Desktop).
 - `clipboard` — reads a PNG from the macOS clipboard. Use this after the user takes a screenshot with `Cmd+Ctrl+Shift+4` (Ctrl modifier sends the screenshot to clipboard instead of disk).
 
 The script prints plaintext. Read it as if you saw the image yourself, then continue your reasoning. On error it prints to stderr and exits non-zero.
-
-## When to pick which input
-
-- User said "look at this screenshot" / "理解这张图" without giving a path → try `analyze-image latest` first; it's right ~80% of the time on macOS
-- User said "I just copied an image" / "see what I copied" → use `analyze-image clipboard`
-- User pasted a URL → pass the URL directly
-- User gave an explicit path → use it
 
 ## What this skill cannot do
 
 **Read inline images dropped or attached into the chat.** When the user drag-drops, pastes, or uses Claude Desktop's "+ → Add files or photos" attachment, the image becomes an `image_url` content block embedded in the message — Cowork does NOT stage it to a filesystem path the script can reach, and on a text-only backend it usually surfaces as `[Unsupported Image]`.
 
-If the user shares an image inline and you have no path or URL, **first try the `latest` and `clipboard` modes** — chances are the user just took a screenshot. If neither helps, ask them to:
+If the user shares an image inline and you have no path or URL, suggest one of these in order of convenience:
 
-1. Save the image to disk and re-share with the file path
-2. Paste an http/https URL to the image instead
+1. `Cmd+Ctrl+Shift+4` to screenshot to clipboard, then run `analyze-image clipboard` (no temp file management for the user)
+2. Save the image to disk and re-share with the file path
+3. Paste an http/https URL to the image
 
-Do not try to invent a path or guess at the image content — say what you can't see, then propose `latest` / `clipboard` / explicit path.
+Do not try to invent a path or guess at the image content — say what you can't see, then propose one of the three options above.
 
 ## Setup (one-time)
 

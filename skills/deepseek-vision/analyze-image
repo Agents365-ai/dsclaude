@@ -4,7 +4,6 @@
 #   <input> can be:
 #     - a local file path
 #     - an http(s) URL
-#     - "latest"    → most recent image in ~/Desktop (handy after Cmd+Shift+4)
 #     - "clipboard" → macOS clipboard PNG (handy after Cmd+Ctrl+Shift+4)
 # Requires: DASHSCOPE_API_KEY in env. Returns plaintext on stdout.
 
@@ -13,22 +12,28 @@ set -euo pipefail
 INPUT="${1:-}"
 PROMPT="${2:-Describe this image in detail. Focus on text content, UI elements, code snippets, charts, error messages — anything a coding/agent task might care about.}"
 
-[[ -n "$INPUT" ]] || { echo "analyze-image: missing image path or URL (or 'latest' / 'clipboard')" >&2; exit 1; }
-[[ -n "${DASHSCOPE_API_KEY:-}" ]] || { echo "analyze-image: DASHSCOPE_API_KEY not set" >&2; exit 1; }
+[[ -n "$INPUT" ]] || { echo "analyze-image: missing image path, URL, or 'clipboard'" >&2; exit 1; }
 
-# Resolve special inputs ('latest', 'clipboard') into a real file path.
+# Resolve DASHSCOPE_API_KEY: env first, then shell rc files. Claude Code's
+# subprocesses don't always inherit interactive-shell exports, so we look in
+# the rc files directly as a fallback.
+if [[ -z "${DASHSCOPE_API_KEY:-}" ]]; then
+  for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+    [[ -r "$rc" ]] || continue
+    found=$(grep -E '^[[:space:]]*export[[:space:]]+DASHSCOPE_API_KEY=' "$rc" 2>/dev/null \
+      | tail -1 \
+      | sed -E 's/^[^=]*=//; s/^"(.*)"$/\1/; s/^'\''(.*)'\''$/\1/' \
+      || true)
+    [[ -n "$found" ]] && { export DASHSCOPE_API_KEY="$found"; break; }
+  done
+fi
+[[ -n "${DASHSCOPE_API_KEY:-}" ]] || {
+  echo "analyze-image: DASHSCOPE_API_KEY not set in env or shell rc files (~/.zshrc, ~/.bashrc, ...). Add 'export DASHSCOPE_API_KEY=sk-...' and retry." >&2
+  exit 1
+}
+
+# Resolve special input 'clipboard' into a real file path.
 case "$INPUT" in
-  latest)
-    INPUT=$(ls -t \
-      "$HOME/Desktop"/*.png "$HOME/Desktop"/*.jpg "$HOME/Desktop"/*.jpeg \
-      "$HOME/Desktop"/*.webp "$HOME/Desktop"/*.heic \
-      2>/dev/null | head -1 || true)
-    [[ -n "$INPUT" && -f "$INPUT" ]] || {
-      echo "analyze-image: no image found in ~/Desktop. Take a screenshot (Cmd+Shift+4) and retry, or pass an explicit path." >&2
-      exit 1
-    }
-    echo "analyze-image: using most recent ~/Desktop image: $INPUT" >&2
-    ;;
   clipboard)
     INPUT="/tmp/dsvision-clipboard-$$.png"
     if ! osascript >/dev/null 2>&1 <<APPLESCRIPT
