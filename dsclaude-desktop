@@ -101,11 +101,14 @@ confirm_or_abort() {
 }
 
 # Write the gateway entry JSON for a given UUID via atomic temp+mv.
+# Claude Desktop's parser rejects entries with a trailing newline ("unknown
+# config id"), so we strip it.
 write_entry() {
   local uuid="$1"
   local entry_path="$CONFIG_DIR/${uuid}.json"
   local tmp="${entry_path}.tmp"
-  jq -n \
+  local content
+  content="$(jq -n \
     --arg baseUrl "$BASE_URL" \
     --arg apiKey  "$DEEPSEEK_KEY" \
     --arg auth    "$AUTH_SCHEME" \
@@ -120,7 +123,9 @@ write_entry() {
          {name: $main, supports1m: true},
          {name: $fast, supports1m: true}
        ]
-     }' > "$tmp"
+     }')"
+  printf '%s' "$content" > "$tmp"
+  chmod 600 "$tmp"
   mv "$tmp" "$entry_path"
 }
 
@@ -138,18 +143,23 @@ ensure_meta_entry() {
   if [[ -n "$existing_uuid" ]]; then
     uuid="$existing_uuid"
   else
-    uuid="$(uuidgen)"
+    # Lowercase UUID to match Claude's own format (uuidgen returns uppercase).
+    uuid="$(uuidgen | tr 'A-Z' 'a-z')"
   fi
   local tmp="${META}.tmp"
+  local content
   if [[ -f "$META" ]]; then
-    jq --arg id "$uuid" --arg name "$ENTRY_NAME" '
+    content="$(jq --arg id "$uuid" --arg name "$ENTRY_NAME" '
       .appliedId = $id
       | .entries = ((.entries // []) | map(select(.name != $name)) + [{id: $id, name: $name}])
-    ' "$META" > "$tmp"
+    ' "$META")"
   else
-    jq -n --arg id "$uuid" --arg name "$ENTRY_NAME" \
-      '{appliedId: $id, entries: [{id: $id, name: $name}]}' > "$tmp"
+    content="$(jq -n --arg id "$uuid" --arg name "$ENTRY_NAME" \
+      '{appliedId: $id, entries: [{id: $id, name: $name}]}')"
   fi
+  # Strip trailing newline — Claude's parser is picky.
+  printf '%s' "$content" > "$tmp"
+  chmod 600 "$tmp"
   mv "$tmp" "$META"
   printf '%s' "$uuid"
 }
