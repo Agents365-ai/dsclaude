@@ -93,6 +93,90 @@ APPLESCRIPT
   printf '%s' "$key"
 }
 
+confirm_or_abort() {
+  echo
+  echo "About to: $1"
+  echo "Press Enter to continue, Ctrl-C to abort."
+  read -r _
+}
+
+# Write the gateway entry JSON for a given UUID via atomic temp+mv.
+write_entry() {
+  local uuid="$1"
+  local entry_path="$CONFIG_DIR/${uuid}.json"
+  local tmp="${entry_path}.tmp"
+  jq -n \
+    --arg baseUrl "$BASE_URL" \
+    --arg apiKey  "$DEEPSEEK_KEY" \
+    --arg auth    "$AUTH_SCHEME" \
+    --arg main    "$MAIN_MODEL" \
+    --arg fast    "$FAST_MODEL" \
+    '{
+       inferenceProvider: "gateway",
+       inferenceGatewayBaseUrl: $baseUrl,
+       inferenceGatewayApiKey: $apiKey,
+       inferenceGatewayAuthScheme: $auth,
+       inferenceModels: [
+         {name: $main, supports1m: true},
+         {name: $fast, supports1m: true}
+       ]
+     }' > "$tmp"
+  mv "$tmp" "$entry_path"
+}
+
+# Ensure _meta.json has an entry named $ENTRY_NAME (creating or reusing its uuid)
+# and set appliedId to that uuid. Prints the uuid on stdout.
+ensure_meta_entry() {
+  mkdir -p "$CONFIG_DIR"
+  local existing_uuid=""
+  if [[ -f "$META" ]]; then
+    existing_uuid="$(jq -r --arg name "$ENTRY_NAME" \
+      '.entries[]? | select(.name==$name) | .id' "$META" 2>/dev/null \
+      | head -1)"
+  fi
+  local uuid
+  if [[ -n "$existing_uuid" ]]; then
+    uuid="$existing_uuid"
+  else
+    uuid="$(uuidgen)"
+  fi
+  local tmp="${META}.tmp"
+  if [[ -f "$META" ]]; then
+    jq --arg id "$uuid" --arg name "$ENTRY_NAME" '
+      .appliedId = $id
+      | .entries = ((.entries // []) | map(select(.name != $name)) + [{id: $id, name: $name}])
+    ' "$META" > "$tmp"
+  else
+    jq -n --arg id "$uuid" --arg name "$ENTRY_NAME" \
+      '{appliedId: $id, entries: [{id: $id, name: $name}]}' > "$tmp"
+  fi
+  mv "$tmp" "$META"
+  printf '%s' "$uuid"
+}
+
+restart_claude() {
+  killall Claude 2>/dev/null || true
+  sleep 1
+  open -a Claude
+}
+
 preflight
 DEEPSEEK_KEY="$(resolve_api_key)"
-echo "Resolved key (length: ${#DEEPSEEK_KEY})"  # placeholder — Task 2 replaces
+confirm_or_abort "configure Claude Desktop to use DeepSeek ($BASE_URL) and restart it."
+UUID="$(ensure_meta_entry)"
+write_entry "$UUID"
+restart_claude
+
+cat <<'EOF'
+
+Done. Claude Desktop is restarting with DeepSeek as the inference backend.
+
+Heads up: Chat mode is unavailable while a third-party gateway is active.
+You'll see Cowork (3P) and Code modes only. To use Chat:
+
+  - At launch chooser, pick "Continue with Anthropic", OR
+  - In Developer → Configure Third-Party Inference, toggle off "Skip
+    login-mode chooser" (default is off, so the chooser should appear)
+
+Re-run dsclaude-desktop any time to refresh the gateway config.
+EOF
