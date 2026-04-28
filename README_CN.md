@@ -136,13 +136,21 @@ export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
 
 # 或者 http(s) URL —— 直接传递，不下载不编码：
 ./skills/deepseek-vision/analyze-image https://example.com/diagram.png
+
+# 或者 'latest' 魔术词 —— 自动用 ~/Desktop 下最新的图
+# （配合 Cmd+Shift+4 用，macOS 默认截图就存桌面）：
+./skills/deepseek-vision/analyze-image latest
+
+# 或者 'clipboard' —— 读 macOS 剪贴板里的 PNG
+# （配合 Cmd+Ctrl+Shift+4，加 Ctrl 是截图到剪贴板而不是存盘）：
+./skills/deepseek-vision/analyze-image clipboard
 ```
 
 任何加载 `SKILL.md` 的 agent 都能用（Claude Code / Cowork 等）。默认模型 `qwen3.6-flash`，要更准换 `DSVISION_MODEL=qwen3.6-plus`，要换厂商改 `DSVISION_BASE_URL=...`（小米 MiMo-VL via 硅基流动也是一个 base URL 的距离）。
 
 健壮性：10MB 图片上限会提前友好报错；curl 60s 超时防挂死；空响应会检测；任何失败 stderr 出错信息 + exit 非零。
 
-> **内联图限制**：这个 skill 需要**文件路径或 URL** —— 用户**直接拖图进 Claude Desktop 聊天框**的图片它读不到（拖进去的图变成内联 `image_url` block，bash 脚本访问不到；在 DeepSeek 这种纯文本后端会显示成 `[Unsupported Image]`）。这种情况下请用户把图存到磁盘上再发路径，或者粘 URL。
+> **内联图限制**：这个 skill 需要**文件路径或 URL** —— 用户**拖图、粘贴、或用 Claude Desktop "+ → Add files or photos"** 上传的图它都读不到。Cowork 把这些都做成内联 `image_url` block，不暴露文件路径给 bash skill；在 DeepSeek 这种纯文本后端会显示成 `[Unsupported Image]`。`latest` 和 `clipboard` 魔术词覆盖了最常见的截图场景；其他情况就让用户存盘给路径或粘 URL。
 
 > 为什么是 skill 不是 MCP server：零新依赖（只用 `bash` + `curl` + `jq`）、无后台进程、单文件 2 分钟读完。
 

@@ -136,13 +136,21 @@ export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
 
 # Or an http(s) URL — passed through directly, no download needed:
 ./skills/deepseek-vision/analyze-image https://example.com/diagram.png
+
+# Or the magic 'latest' — uses the most recent image in ~/Desktop
+# (works after Cmd+Shift+4, the macOS default screenshot shortcut):
+./skills/deepseek-vision/analyze-image latest
+
+# Or the magic 'clipboard' — reads a PNG from the macOS clipboard
+# (works after Cmd+Ctrl+Shift+4, which screenshots to clipboard):
+./skills/deepseek-vision/analyze-image clipboard
 ```
 
 Loaded by any agent that reads `SKILL.md` files (Claude Code, Cowork, etc.). Default model is `qwen3.6-flash`; override via `DSVISION_MODEL=qwen3.6-plus` for higher quality, or `DSVISION_BASE_URL=...` for a different provider (Xiaomi MiMo-VL via SiliconFlow is one swap away).
 
 Hardening: 10MB image cap with clear error, 60s curl timeout, empty-response detection, exits non-zero with a stderr message on any failure.
 
-> **Inline-image caveat**: this skill needs a file path or URL — it cannot read images that the user drag-drops directly into Claude Desktop's chat (those become inline `image_url` blocks the bash script can't reach, and on a text-only backend they show up as `[Unsupported Image]`). When this happens, ask the user to save the image to disk and re-share with the path, or paste a URL.
+> **Inline-image caveat**: this skill needs a file path or URL — it cannot read images that the user drag-drops, pastes, or attaches via Claude Desktop's "+ → Add files or photos" menu. Those become inline `image_url` blocks the bash script can't reach, and on a text-only backend they show up as `[Unsupported Image]`. The `latest` and `clipboard` magic inputs cover the common screenshot case on macOS; for everything else, save the image to disk and pass the path, or paste a URL.
 
 > Why a skill instead of an MCP server: zero new dependencies (just `bash` + `curl` + `jq`), no daemon process, single markdown + bash file you can read in 2 minutes.
 
