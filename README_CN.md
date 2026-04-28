@@ -17,27 +17,22 @@
 
 `dsclaude-desktop` 是 Claude Desktop **内置** "Configure Third-Party Inference" 功能（Developer 菜单）的一键配置工具。它把对话框需要你手填的那份 JSON 配置直接写好（已为 DeepSeek 预填）并重启 App。Anthropic 模式 ↔ Gateway 模式之间的切换由 Claude Desktop 启动选择器原生支持，所以脚本里没有 `--revert`。
 
-## 兼容性
-
-| 平台 | 支持状态 |
-|------|----------|
-| macOS | 原生支持，完全可用 |
-| Linux (Ubuntu 等) | 兼容 — 依赖 `bash` 和标准 POSIX 工具（系统自带） |
-| Windows | 不原生支持 — 可通过 [WSL](https://learn.microsoft.com/zh-cn/windows/wsl/) 或 Git Bash 运行 |
-
 ## 快速开始
 
 ```bash
 git clone https://github.com/Agents365-ai/dsclaude.git
 cd dsclaude
-chmod +x dsclaude
 ```
 
-可选 — 设为全局命令：
+就这样 —— 仓库里的 bash 脚本自带可执行权限，不用 `chmod`。每个工具的具体用法见下面对应小节。
+
+如果想把 `dsclaude`（Claude Code 启动器）变成全局命令：
 
 ```bash
-sudo mv dsclaude /usr/local/bin/
+sudo cp dsclaude /usr/local/bin/
 ```
+
+其他工具（`dsclaude-desktop`、`skills/deepseek-vision/analyze-image`）会引用自己的路径或目录，所以留在 repo 里跑就行。
 
 ### dsclaude
 
@@ -131,15 +126,23 @@ pwsh ./dsclaude-desktop.ps1
 
 ### deepseek-vision skill
 
-给纯文本模型（如 DeepSeek）补上"看图"能力的 skill。Agent 遇到图片路径时调 `skills/deepseek-vision/analyze-image`，脚本把图发给 **Qwen3.6-Flash** （DashScope），返回文字描述写回上下文供主模型推理。
+给任意 agent（尤其是 DeepSeek 这种纯文本模型）补上"看图"能力的 skill。Agent 遇到图片（**本地路径或 URL 都行**）时调 `skills/deepseek-vision/analyze-image`，脚本把图发给 **Qwen3.6-Flash** （DashScope），返回文字描述写回上下文供主模型推理。
 
 ```bash
 export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
 
+# 本地文件：
 ./skills/deepseek-vision/analyze-image /path/to/screenshot.png "图里报的什么错？"
+
+# 或者 http(s) URL —— 直接传递，不下载不编码：
+./skills/deepseek-vision/analyze-image https://example.com/diagram.png
 ```
 
-任何加载 `SKILL.md` 的 agent 都能用（Claude Code / Cowork 等）。默认模型 `qwen3.6-flash`，要更准换 `DSVISION_MODEL=qwen3.6-plus`，要换厂商改 `DSVISION_BASE_URL=...`。
+任何加载 `SKILL.md` 的 agent 都能用（Claude Code / Cowork 等）。默认模型 `qwen3.6-flash`，要更准换 `DSVISION_MODEL=qwen3.6-plus`，要换厂商改 `DSVISION_BASE_URL=...`（小米 MiMo-VL via 硅基流动也是一个 base URL 的距离）。
+
+健壮性：10MB 图片上限会提前友好报错；curl 60s 超时防挂死；空响应会检测；任何失败 stderr 出错信息 + exit 非零。
+
+> **内联图限制**：这个 skill 需要**文件路径或 URL** —— 用户**直接拖图进 Claude Desktop 聊天框**的图片它读不到（拖进去的图变成内联 `image_url` block，bash 脚本访问不到；在 DeepSeek 这种纯文本后端会显示成 `[Unsupported Image]`）。这种情况下请用户把图存到磁盘上再发路径，或者粘 URL。
 
 > 为什么是 skill 不是 MCP server：零新依赖（只用 `bash` + `curl` + `jq`）、无后台进程、单文件 2 分钟读完。
 

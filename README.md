@@ -17,27 +17,22 @@ A small collection of shell scripts that point [Claude Code](https://claude.ai/c
 
 `dsclaude-desktop` is a one-command configurator for Claude Desktop's built-in **Configure Third-Party Inference** feature (Developer menu). It writes the same config that the dialog would write — pre-filled for DeepSeek — and restarts the app. Claude Desktop's launch chooser handles switching back to Anthropic mode natively, so there's no `--revert` flag.
 
-## Compatibility
-
-| Platform | Status |
-|----------|--------|
-| macOS | Native, fully supported |
-| Linux (Ubuntu, etc.) | Compatible — requires `bash` and standard POSIX tools (pre-installed) |
-| Windows | Not supported natively — works via [WSL](https://learn.microsoft.com/en-us/windows/wsl/) or Git Bash |
-
 ## Quick start
 
 ```bash
 git clone https://github.com/Agents365-ai/dsclaude.git
 cd dsclaude
-chmod +x dsclaude
 ```
 
-Make it globally available (optional):
+That's it — the bash scripts ship with the executable bit set, so no `chmod` is needed. Each tool has its own usage section below.
+
+To make `dsclaude` (Claude Code launcher) globally available:
 
 ```bash
-sudo mv dsclaude /usr/local/bin/
+sudo cp dsclaude /usr/local/bin/
 ```
+
+The other tools (`dsclaude-desktop`, `skills/deepseek-vision/analyze-image`) reference their own paths or directories, so leave them in the repo.
 
 ### dsclaude
 
@@ -131,15 +126,23 @@ Prerequisites mirror the macOS version: Claude Desktop installed, Developer Mode
 
 ### deepseek-vision skill
 
-A skill for giving DeepSeek (text-only) the ability to "see" images. When the active agent encounters an image file path, it calls `skills/deepseek-vision/analyze-image` which sends the image to **Qwen3.6-Flash** (DashScope) and returns a text description the agent can reason over.
+A skill that gives any agent (especially text-only ones like DeepSeek) the ability to "see" images. When the agent encounters an image — file path or URL — it calls `skills/deepseek-vision/analyze-image`, which sends the image to **Qwen3.6-Flash** (DashScope) and returns a text description the agent can reason over.
 
 ```bash
 export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
 
+# Local file:
 ./skills/deepseek-vision/analyze-image /path/to/screenshot.png "What error is shown?"
+
+# Or an http(s) URL — passed through directly, no download needed:
+./skills/deepseek-vision/analyze-image https://example.com/diagram.png
 ```
 
-The skill works in any agent that loads `SKILL.md` files (Claude Code, Cowork, etc.). Default model is `qwen3.6-flash`; override via `DSVISION_MODEL=qwen3.6-plus` for higher quality, or `DSVISION_BASE_URL=...` for a different provider.
+Loaded by any agent that reads `SKILL.md` files (Claude Code, Cowork, etc.). Default model is `qwen3.6-flash`; override via `DSVISION_MODEL=qwen3.6-plus` for higher quality, or `DSVISION_BASE_URL=...` for a different provider (Xiaomi MiMo-VL via SiliconFlow is one swap away).
+
+Hardening: 10MB image cap with clear error, 60s curl timeout, empty-response detection, exits non-zero with a stderr message on any failure.
+
+> **Inline-image caveat**: this skill needs a file path or URL — it cannot read images that the user drag-drops directly into Claude Desktop's chat (those become inline `image_url` blocks the bash script can't reach, and on a text-only backend they show up as `[Unsupported Image]`). When this happens, ask the user to save the image to disk and re-share with the path, or paste a URL.
 
 > Why a skill instead of an MCP server: zero new dependencies (just `bash` + `curl` + `jq`), no daemon process, single markdown + bash file you can read in 2 minutes.
 

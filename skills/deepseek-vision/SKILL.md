@@ -19,6 +19,17 @@ Accepts:
 
 The script prints plaintext. Read it as if you saw the image yourself, then continue your reasoning. On error it prints to stderr and exits non-zero.
 
+## What this skill cannot do
+
+**Read inline images dropped into the chat.** When a user pastes or drag-drops an image into Claude Desktop's chat (or similar UI), the image becomes an `image_url` content block embedded in the message — there is no filesystem path the script can reach, and on a text-only backend the block usually surfaces as `[Unsupported Image]`.
+
+If the user shares an image inline and you have no path or URL, ask them to either:
+
+1. Save the image to disk (right-click → Save Image, or drag it to Desktop) and re-share with the file path
+2. Paste an http/https URL to the image instead
+
+Do not try to invent a path or guess at the image content — say what you can't see, then ask for a path or URL.
+
 ## Setup (one-time)
 
 ```bash
