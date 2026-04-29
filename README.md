@@ -180,6 +180,14 @@ analyze_image(image_path="/abs/path/to/foo.png")
 analyze_image(focus="What error is shown?")    # custom prompt
 ```
 
+**In action — Cowork 3P running on DeepSeek, asked to "explain the image":**
+
+<p align="center">
+  <img src="docs/images/dsvision-mcp-cowork-demo.png" alt="Cowork 3P agent calling analyze_image MCP tool to describe an attached screenshot" width="800">
+</p>
+
+The user attached a screenshot, said "explain the image", the DeepSeek agent invoked `analyze_image` (visible as "Used analyze image" in the trace), MCP fetched the cached image from `~/.claude/image-cache/`, sent it to Qwen3.6-Flash, and returned the description back into the conversation context.
+
 **When to pick which** (tldr):
 
 | Scenario | Use |
