@@ -32,31 +32,76 @@ fi
   exit 1
 }
 
-# Resolve special input 'clipboard' into a real file path.
+# Resolve special input 'clipboard' into a real file path. macOS apps put
+# images on the pasteboard in different flavors (PNG from screenshots, TIFF
+# from Preview, JPEG from some apps, file URLs from Finder Cmd+C). Try them
+# all in priority order.
 case "$INPUT" in
   clipboard)
-    INPUT="/tmp/dsvision-clipboard-$$.png"
-    if ! osascript >/dev/null 2>&1 <<APPLESCRIPT
+    TMP="/tmp/dsvision-clipboard-$$"
+    RESULT=$(osascript 2>/dev/null <<APPLESCRIPT
 try
-  set theData to the clipboard as «class PNGf»
-  set theFile to open for access (POSIX file "$INPUT") with write permission
-  set eof of theFile to 0
-  write theData to theFile
-  close access theFile
-  return "ok"
-on error errMsg
-  try
-    close access theFile
-  end try
-  error errMsg
+  set fileRef to (the clipboard as «class furl»)
+  return "FILE:" & POSIX path of fileRef
 end try
+try
+  set pngData to the clipboard as «class PNGf»
+  set f to open for access (POSIX file "${TMP}.png") with write permission
+  set eof of f to 0
+  write pngData to f
+  close access f
+  return "PNG"
+end try
+try
+  set tiffData to the clipboard as «class TIFF»
+  set f to open for access (POSIX file "${TMP}.tiff") with write permission
+  set eof of f to 0
+  write tiffData to f
+  close access f
+  return "TIFF"
+end try
+try
+  set jpegData to the clipboard as «class JPEG»
+  set f to open for access (POSIX file "${TMP}.jpg") with write permission
+  set eof of f to 0
+  write jpegData to f
+  close access f
+  return "JPEG"
+end try
+return "NONE"
 APPLESCRIPT
-    then
-      echo "analyze-image: no PNG image in clipboard. Take a screenshot to clipboard with Cmd+Ctrl+Shift+4 and retry." >&2
-      rm -f "$INPUT"
-      exit 1
-    fi
-    echo "analyze-image: using clipboard image (saved to $INPUT)" >&2
+)
+    case "$RESULT" in
+      FILE:*)
+        INPUT="${RESULT#FILE:}"
+        [[ -f "$INPUT" ]] || { echo "analyze-image: clipboard had a file URL but path doesn't exist: $INPUT" >&2; exit 1; }
+        echo "analyze-image: using clipboard file: $INPUT" >&2
+        ;;
+      PNG)
+        INPUT="${TMP}.png"
+        echo "analyze-image: using clipboard PNG: $INPUT" >&2
+        ;;
+      TIFF)
+        # DashScope doesn't accept TIFF — convert to PNG via macOS-native sips.
+        sips -s format png "${TMP}.tiff" --out "${TMP}.png" >/dev/null 2>&1 \
+          || { echo "analyze-image: sips failed to convert TIFF→PNG" >&2; rm -f "${TMP}.tiff"; exit 1; }
+        rm -f "${TMP}.tiff"
+        INPUT="${TMP}.png"
+        echo "analyze-image: using clipboard TIFF (converted to PNG): $INPUT" >&2
+        ;;
+      JPEG)
+        INPUT="${TMP}.jpg"
+        echo "analyze-image: using clipboard JPEG: $INPUT" >&2
+        ;;
+      *)
+        echo "analyze-image: no image-like data in clipboard (tried PNG/TIFF/JPEG/file-URL). Try one of:" >&2
+        echo "  - Cmd+Ctrl+Shift+4 to screenshot to clipboard" >&2
+        echo "  - In Finder, Cmd+C an image file" >&2
+        echo "  - Open the image in Preview, Edit → Copy" >&2
+        rm -f "${TMP}".png "${TMP}".tiff "${TMP}".jpg 2>/dev/null
+        exit 1
+        ;;
+    esac
     ;;
 esac
 
