@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""dsvision-mcp — MCP server exposing Qwen3.6-Flash vision to Claude Desktop / Cowork.
+
+Why this exists alongside skills/deepseek-vision/:
+- The skill (bash) runs INSIDE Cowork's Linux VM, behind egressAllowedDomains
+  (only *.anthropic.com / claude.com allowed). It can't reach DashScope.
+- This MCP server runs OUTSIDE the sandbox as a Claude Desktop child process,
+  bypasses the egress filter entirely, AND can read ~/.claude/image-cache/
+  on the host filesystem to grab the latest pasted/attached image.
+
+Tool: analyze_image(image_path: str = "", focus: str = "")
+- image_path empty → most-recent file in ~/.claude/image-cache/ (Claude Code's
+  auto-cache for inline-attached and pasted images).
+- image_path set → read that file.
+
+Install:
+    pip install fastmcp requests           # both ship with most envs
+
+Configure ~/Library/Application Support/Claude-3p/claude_desktop_config.json
+(and/or ~/Library/Application Support/Claude/claude_desktop_config.json):
+
+    {
+      "mcpServers": {
+        "dsvision": {
+          "command": "/Users/<you>/github/dsclaude/dsvision-mcp"
+        }
+      }
+    }
+
+Then restart Claude Desktop. Requires DASHSCOPE_API_KEY in env or shell rc.
+"""
+from __future__ import annotations
+
+import base64
+import os
+from pathlib import Path
+
+import requests
+from fastmcp import FastMCP
+
+mcp = FastMCP("dsvision")
+
+DASHSCOPE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+DEFAULT_MODEL = os.environ.get("DSVISION_MODEL", "qwen3.6-flash")
+IMAGE_CACHE = Path.home() / ".claude" / "image-cache"
+SIZE_CAP = 10 * 1024 * 1024  # 10 MB; DashScope rejects beyond this
+
+
+def resolve_api_key() -> str:
+    """env → ~/.zshrc → ~/.bashrc → ~/.bash_profile → ~/.profile.
+
+    Claude Desktop spawns this server as a child process; depending on how
+    Claude Desktop was launched, env may or may not include the user's shell
+    rc exports. Mirror dsclaude-desktop's resolve_api_key bash helper.
+    """
+    if (k := os.environ.get("DASHSCOPE_API_KEY")):
+        return k
+    for rc in (".zshrc", ".bashrc", ".bash_profile", ".profile"):
+        path = Path.home() / rc
+        if not path.exists():
+            continue
+        for line in path.read_text(errors="ignore").splitlines():
+            line = line.strip()
+            if line.startswith("export DASHSCOPE_API_KEY="):
+                value = line.split("=", 1)[1].strip().strip('"').strip("'")
+                if value:
+                    return value
+    raise RuntimeError(
+        "DASHSCOPE_API_KEY not set in env or shell rc. "
+        "Add 'export DASHSCOPE_API_KEY=sk-...' to ~/.zshrc and restart Claude Desktop."
+    )
+
+
+def find_most_recent_cached_image() -> Path | None:
+    """Return the most recently modified image in ~/.claude/image-cache/, or None."""
+    if not IMAGE_CACHE.exists():
+        return None
+    images = []
+    for ext in ("*.png", "*.jpg", "*.jpeg", "*.webp", "*.heic", "*.gif"):
+        images.extend(IMAGE_CACHE.rglob(ext))
+    return max(images, key=lambda p: p.stat().st_mtime) if images else None
+
+
+def encode_image(path: Path) -> str:
+    """Return a data: URL for the local image."""
+    mime = {
+        ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+        ".webp": "image/webp", ".gif": "image/gif", ".heic": "image/heic",
+    }.get(path.suffix.lower(), "image/png")
+    b64 = base64.b64encode(path.read_bytes()).decode()
+    return f"data:{mime};base64,{b64}"
+
+
+@mcp.tool
+def analyze_image(
+    image_path: str = "",
+    focus: str = (
+        "Describe this image in detail. Focus on text content, UI elements, "
+        "code snippets, charts, error messages — anything a coding/agent task "
+        "might care about."
+    ),
+) -> str:
+    """Analyze an image with Qwen3.6-Flash and return a text description.
+
+    Args:
+        image_path: Local file path. Leave empty to auto-pick the most recent
+            image in ~/.claude/image-cache/ (where Claude Code caches every
+            attached or pasted image).
+        focus: Optional prompt to focus the description.
+
+    Returns:
+        Text description, or an "ERROR: ..." string the agent can read and act on.
+    """
+    if not image_path:
+        path = find_most_recent_cached_image()
+        if path is None:
+            return ("ERROR: image_path empty and no images found in "
+                    f"{IMAGE_CACHE}. Pass an explicit path.")
+    else:
+        path = Path(image_path).expanduser().resolve()
+        if not path.is_file():
+            return f"ERROR: image not found: {path}"
+
+    size = path.stat().st_size
+    if size > SIZE_CAP:
+        return f"ERROR: image too large ({size} bytes; limit {SIZE_CAP})"
+
+    try:
+        api_key = resolve_api_key()
+    except RuntimeError as e:
+        return f"ERROR: {e}"
+
+    try:
+        resp = requests.post(
+            DASHSCOPE_URL,
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={
+                "model": DEFAULT_MODEL,
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": encode_image(path)}},
+                        {"type": "text", "text": focus},
+                    ],
+                }],
+            },
+            timeout=(10, 60),
+        )
+    except requests.RequestException as e:
+        return f"ERROR: network failure calling DashScope: {e}"
+
+    if resp.status_code != 200:
+        return f"ERROR: DashScope HTTP {resp.status_code}: {resp.text[:500]}"
+
+    try:
+        content = resp.json()["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, ValueError) as e:
+        return f"ERROR: unexpected DashScope response: {e}; raw: {resp.text[:500]}"
+
+    if not content:
+        return "ERROR: empty response from model"
+
+    return f"{content}\n\n[analyzed image: {path}]"
+
+
+if __name__ == "__main__":
+    mcp.run()

@@ -12,6 +12,7 @@ A small collection of shell scripts that point [Claude Code](https://claude.ai/c
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (GUI) | macOS | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro` · `deepseek-v4-flash` (1M context on both) |
 | **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows (untested) | DeepSeek API (Anthropic-compatible endpoint) | same as above |
 | **[skills/deepseek-vision](skills/deepseek-vision/)** | skill (any agent that loads SKILL.md) | macOS / Linux | DashScope (Anthropic / OpenAI-compatible) | `qwen3.6-flash` (default vision) |
+| **[dsvision-mcp](dsvision-mcp)** | MCP server (Claude Desktop / Cowork / any MCP client) | macOS / Linux | DashScope | `qwen3.6-flash` (default vision) |
 
 `dsclaude` exposes the alternate model in Claude Code's `/model` picker so you can hot-swap mid-session, sets `ANTHROPIC_DEFAULT_HAIKU_MODEL` so background/cheap tasks route to the fast model, and honors optional env overrides for context window and output token limits.
 
@@ -146,7 +147,50 @@ Loaded by any agent that reads `SKILL.md` files (Claude Code, Cowork, etc.). Def
 
 Hardening: 10MB image cap with clear error, 60s curl timeout, empty-response detection, exits non-zero with a stderr message on any failure.
 
-> **Inline-image caveat**: this skill needs a file path, URL, or the macOS clipboard — it cannot read images that the user drag-drops, pastes, or attaches via Claude Desktop's "+ → Add files or photos" menu. Those become inline `image_url` blocks the bash script can't reach, and on a text-only backend they show up as `[Unsupported Image]`. The `clipboard` magic input is the smoothest workaround on macOS: `Cmd+Ctrl+Shift+4` screenshots to clipboard, then the skill grabs it. For everything else, save the image to disk and pass the path, or paste a URL.
+> **Inline-image caveat**: this skill needs a file path, URL, or the macOS clipboard — it cannot read images that the user drag-drops, pastes, or attaches via Claude Desktop's "+ → Add files or photos" menu. Those become inline `image_url` blocks the bash script can't reach, and on a text-only backend they show up as `[Unsupported Image]`. The `clipboard` magic input is the smoothest workaround on macOS: `Cmd+Ctrl+Shift+4` screenshots to clipboard, then the skill grabs it. For everything else, save the image to disk and pass the path, or paste a URL — **or use `dsvision-mcp` below**, which handles the inline-image case cleanly.
+
+### dsvision-mcp
+
+A small MCP server that does the same job as the `deepseek-vision` skill, but bypasses two limitations the skill hits inside Cowork:
+
+1. **Sandbox network egress**. Cowork's VM only allows outbound traffic to `*.anthropic.com` / `*.claude.com`. A bash skill calling `dashscope.aliyuncs.com` is firewalled. The MCP server runs as a Claude Desktop child process (outside the VM) and bypasses the egress filter.
+2. **Inline images**. Claude Code caches every attached/pasted image to `~/.claude/image-cache/<session-uuid>/N.png` on the host filesystem. The MCP server reads from there directly when the agent calls `analyze_image()` with no path — it auto-picks the most recent cached image. So drag-drop / "+ → Add files or photos" / paste workflows now Just Work.
+
+**Install**
+
+```bash
+pip install fastmcp requests
+```
+
+Then add to `~/Library/Application Support/Claude-3p/claude_desktop_config.json` (and/or the `Claude/` variant for non-3P mode):
+
+```json
+{
+  "mcpServers": {
+    "dsvision": {
+      "command": "/Users/<you>/path/to/dsclaude/dsvision-mcp"
+    }
+  }
+}
+```
+
+Restart Claude Desktop. The `analyze_image` tool will appear to the agent automatically.
+
+**Usage from the agent's perspective**
+
+```
+analyze_image()                     # auto: latest image in ~/.claude/image-cache/
+analyze_image(image_path="/abs/path/to/foo.png")
+analyze_image(focus="What error is shown?")    # custom prompt
+```
+
+**When to pick which** (tldr):
+
+| Scenario | Use |
+|---|---|
+| Claude Code (CLI), explicit paths | `skills/deepseek-vision` (zero deps, simpler) |
+| Cowork / Claude Desktop with inline images | `dsvision-mcp` (only thing that works) |
+| Cowork with explicit path + not minding sandbox tweaks | either |
 
 > Why a skill instead of an MCP server: zero new dependencies (just `bash` + `curl` + `jq`), no daemon process, single markdown + bash file you can read in 2 minutes.
 

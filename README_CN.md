@@ -12,6 +12,7 @@
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (GUI) | macOS | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro` · `deepseek-v4-flash`（均启用 1M 上下文） |
 | **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows（未实测） | DeepSeek API（Anthropic 兼容端点） | 同上 |
 | **[skills/deepseek-vision](skills/deepseek-vision/)** | skill（任何加载 SKILL.md 的 agent） | macOS / Linux | DashScope（OpenAI/Anthropic 兼容） | `qwen3.6-flash`（默认视觉模型） |
+| **[dsvision-mcp](dsvision-mcp)** | MCP server（Claude Desktop / Cowork / 任何 MCP 客户端） | macOS / Linux | DashScope | `qwen3.6-flash`（默认视觉模型） |
 
 `dsclaude` 会在 Claude Code 的 `/model` 选择器中暴露备选模型，支持会话中热切换；同时设置 `ANTHROPIC_DEFAULT_HAIKU_MODEL`，让后台/轻量任务走快模型；并支持可选的环境变量覆盖上下文窗口和输出 token 上限。
 
@@ -146,7 +147,50 @@ export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
 
 健壮性：10MB 图片上限会提前友好报错；curl 60s 超时防挂死；空响应会检测；任何失败 stderr 出错信息 + exit 非零。
 
-> **内联图限制**：这个 skill 需要**文件路径、URL，或 macOS 剪贴板** —— 用户**拖图、粘贴、或用 Claude Desktop "+ → Add files or photos"** 上传的图它都读不到。Cowork 把这些都做成内联 `image_url` block，不暴露文件路径给 bash skill；在 DeepSeek 这种纯文本后端会显示成 `[Unsupported Image]`。**最顺手的 workaround** 是 `clipboard` 魔术词：`Cmd+Ctrl+Shift+4` 截图到剪贴板，skill 直接读。其他情况就让用户存盘给路径或粘 URL。
+> **内联图限制**：这个 skill 需要**文件路径、URL，或 macOS 剪贴板** —— 用户**拖图、粘贴、或用 Claude Desktop "+ → Add files or photos"** 上传的图它都读不到。Cowork 把这些都做成内联 `image_url` block，不暴露文件路径给 bash skill；在 DeepSeek 这种纯文本后端会显示成 `[Unsupported Image]`。**最顺手的 workaround** 是 `clipboard` 魔术词：`Cmd+Ctrl+Shift+4` 截图到剪贴板，skill 直接读。其他情况就让用户存盘给路径或粘 URL —— **或用下面的 `dsvision-mcp`**，能彻底解决内联图问题。
+
+### dsvision-mcp
+
+跟 `deepseek-vision` skill 干的活一样，但能绕过 Cowork 里 skill 撞到的两个限制：
+
+1. **沙箱网络出口管制**。Cowork VM 默认只允许出 `*.anthropic.com` / `*.claude.com`，bash skill 调 `dashscope.aliyuncs.com` 会被防火墙挡。MCP server 是 Claude Desktop 的子进程（**跑在沙箱外**），不受这个限制
+2. **内联图**。Claude Code 把每张拖入/附加/粘贴的图自动缓存到 `~/.claude/image-cache/<session-uuid>/N.png`，宿主机文件系统上。MCP server 调 `analyze_image()` 不传 path 时会自动选最新一张。**拖图、+ 菜单、粘贴的场景这下都能跑通**
+
+**安装**
+
+```bash
+pip install fastmcp requests
+```
+
+然后加到 `~/Library/Application Support/Claude-3p/claude_desktop_config.json`（如果还想给非 3P 模式用，同时加到 `Claude/` 那份）：
+
+```json
+{
+  "mcpServers": {
+    "dsvision": {
+      "command": "/Users/<你的用户名>/path/to/dsclaude/dsvision-mcp"
+    }
+  }
+}
+```
+
+重启 Claude Desktop。`analyze_image` 工具会自动出现在 agent 工具列表里。
+
+**Agent 视角的用法**
+
+```
+analyze_image()                          # 自动：~/.claude/image-cache/ 里最新一张
+analyze_image(image_path="/绝对/路径/foo.png")
+analyze_image(focus="图里报的什么错？")    # 自定义 prompt
+```
+
+**何时用哪个**（tldr）：
+
+| 场景 | 用哪个 |
+|---|---|
+| Claude Code (CLI)，给明确路径 | `skills/deepseek-vision`（零依赖，简单） |
+| Cowork / Claude Desktop，内联图 | `dsvision-mcp`（**唯一能用的**） |
+| Cowork 给明确路径，且不介意 patch 沙箱 | 都行 |
 
 > 为什么是 skill 不是 MCP server：零新依赖（只用 `bash` + `curl` + `jq`）、无后台进程、单文件 2 分钟读完。
 
