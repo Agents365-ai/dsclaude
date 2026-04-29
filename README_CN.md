@@ -137,17 +137,13 @@ export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
 
 # 或者 http(s) URL —— 直接传递，不下载不编码：
 ./skills/deepseek-vision/analyze-image https://example.com/diagram.png
-
-# 或者 'clipboard' —— 读 macOS 剪贴板里的 PNG
-# （配合 Cmd+Ctrl+Shift+4，加 Ctrl 是截图到剪贴板而不是存盘）：
-./skills/deepseek-vision/analyze-image clipboard
 ```
 
 任何加载 `SKILL.md` 的 agent 都能用（Claude Code / Cowork 等）。默认模型 `qwen3.6-flash`，要更准换 `DSVISION_MODEL=qwen3.6-plus`，要换厂商改 `DSVISION_BASE_URL=...`（小米 MiMo-VL via 硅基流动也是一个 base URL 的距离）。
 
 健壮性：10MB 图片上限会提前友好报错；curl 60s 超时防挂死；空响应会检测；任何失败 stderr 出错信息 + exit 非零。
 
-> **内联图限制**：这个 skill 需要**文件路径、URL，或 macOS 剪贴板** —— 用户**拖图、粘贴、或用 Claude Desktop "+ → Add files or photos"** 上传的图它都读不到。Cowork 把这些都做成内联 `image_url` block，不暴露文件路径给 bash skill；在 DeepSeek 这种纯文本后端会显示成 `[Unsupported Image]`。**最顺手的 workaround** 是 `clipboard` 魔术词：`Cmd+Ctrl+Shift+4` 截图到剪贴板，skill 直接读。其他情况就让用户存盘给路径或粘 URL —— **或用下面的 `dsvision-mcp`**，能彻底解决内联图问题。
+> **内联图限制**：这个 skill 需要**文件路径或 URL** —— 用户**拖图、粘贴、或用 Claude Desktop "+ → Add files or photos"** 上传的图它都读不到。这种场景请用下面的 **`dsvision-mcp`**，它跑在 Cowork 沙箱外且能自动找 Claude Code 的 image cache。
 
 ### dsvision-mcp
 

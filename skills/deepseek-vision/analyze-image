@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 # analyze-image — describe an image via Qwen3.6-Flash for text-only models.
-# Usage: analyze-image <input> [focus prompt]
-#   <input> can be:
-#     - a local file path
-#     - an http(s) URL
-#     - "clipboard" → macOS clipboard PNG (handy after Cmd+Ctrl+Shift+4)
-# Requires: DASHSCOPE_API_KEY in env. Returns plaintext on stdout.
+# Usage: analyze-image <path-or-url> [focus prompt]
+#   <path-or-url> is either a local file path or an http(s) URL.
+# Requires: DASHSCOPE_API_KEY in env or shell rc. Returns plaintext on stdout.
+#
+# For inline-attached / pasted / clipboard images in Cowork or Claude Desktop,
+# use dsvision-mcp instead — it auto-finds Claude Code's image-cache and
+# bypasses Cowork's egress sandbox.
 
 set -euo pipefail
 
 INPUT="${1:-}"
 PROMPT="${2:-Describe this image in detail. Focus on text content, UI elements, code snippets, charts, error messages — anything a coding/agent task might care about.}"
 
-[[ -n "$INPUT" ]] || { echo "analyze-image: missing image path, URL, or 'clipboard'" >&2; exit 1; }
+[[ -n "$INPUT" ]] || { echo "analyze-image: missing image path or URL" >&2; exit 1; }
 
 # Resolve DASHSCOPE_API_KEY: env first, then shell rc files. Claude Code's
 # subprocesses don't always inherit interactive-shell exports, so we look in
@@ -31,79 +32,6 @@ fi
   echo "analyze-image: DASHSCOPE_API_KEY not set in env or shell rc files (~/.zshrc, ~/.bashrc, ...). Add 'export DASHSCOPE_API_KEY=sk-...' and retry." >&2
   exit 1
 }
-
-# Resolve special input 'clipboard' into a real file path. macOS apps put
-# images on the pasteboard in different flavors (PNG from screenshots, TIFF
-# from Preview, JPEG from some apps, file URLs from Finder Cmd+C). Try them
-# all in priority order.
-case "$INPUT" in
-  clipboard)
-    TMP="/tmp/dsvision-clipboard-$$"
-    RESULT=$(osascript 2>/dev/null <<APPLESCRIPT
-try
-  set fileRef to (the clipboard as «class furl»)
-  return "FILE:" & POSIX path of fileRef
-end try
-try
-  set pngData to the clipboard as «class PNGf»
-  set f to open for access (POSIX file "${TMP}.png") with write permission
-  set eof of f to 0
-  write pngData to f
-  close access f
-  return "PNG"
-end try
-try
-  set tiffData to the clipboard as «class TIFF»
-  set f to open for access (POSIX file "${TMP}.tiff") with write permission
-  set eof of f to 0
-  write tiffData to f
-  close access f
-  return "TIFF"
-end try
-try
-  set jpegData to the clipboard as «class JPEG»
-  set f to open for access (POSIX file "${TMP}.jpg") with write permission
-  set eof of f to 0
-  write jpegData to f
-  close access f
-  return "JPEG"
-end try
-return "NONE"
-APPLESCRIPT
-)
-    case "$RESULT" in
-      FILE:*)
-        INPUT="${RESULT#FILE:}"
-        [[ -f "$INPUT" ]] || { echo "analyze-image: clipboard had a file URL but path doesn't exist: $INPUT" >&2; exit 1; }
-        echo "analyze-image: using clipboard file: $INPUT" >&2
-        ;;
-      PNG)
-        INPUT="${TMP}.png"
-        echo "analyze-image: using clipboard PNG: $INPUT" >&2
-        ;;
-      TIFF)
-        # DashScope doesn't accept TIFF — convert to PNG via macOS-native sips.
-        sips -s format png "${TMP}.tiff" --out "${TMP}.png" >/dev/null 2>&1 \
-          || { echo "analyze-image: sips failed to convert TIFF→PNG" >&2; rm -f "${TMP}.tiff"; exit 1; }
-        rm -f "${TMP}.tiff"
-        INPUT="${TMP}.png"
-        echo "analyze-image: using clipboard TIFF (converted to PNG): $INPUT" >&2
-        ;;
-      JPEG)
-        INPUT="${TMP}.jpg"
-        echo "analyze-image: using clipboard JPEG: $INPUT" >&2
-        ;;
-      *)
-        echo "analyze-image: no image-like data in clipboard (tried PNG/TIFF/JPEG/file-URL). Try one of:" >&2
-        echo "  - Cmd+Ctrl+Shift+4 to screenshot to clipboard" >&2
-        echo "  - In Finder, Cmd+C an image file" >&2
-        echo "  - Open the image in Preview, Edit → Copy" >&2
-        rm -f "${TMP}".png "${TMP}".tiff "${TMP}".jpg 2>/dev/null
-        exit 1
-        ;;
-    esac
-    ;;
-esac
 
 # URL input → pass through directly (DashScope accepts public http/https URLs).
 if [[ "$INPUT" =~ ^https?:// ]]; then

@@ -16,21 +16,21 @@ When the user shares an image — file path or URL — and you need to understan
 Accepts:
 - A local file path (`/Users/me/screenshot.png`, `~/Desktop/diagram.jpg`, relative paths)
 - An http/https URL — passed through directly to the API, no download needed
-- `clipboard` — reads a PNG from the macOS clipboard. Use this after the user takes a screenshot with `Cmd+Ctrl+Shift+4` (Ctrl modifier sends the screenshot to clipboard instead of disk).
 
 The script prints plaintext. Read it as if you saw the image yourself, then continue your reasoning. On error it prints to stderr and exits non-zero.
 
 ## What this skill cannot do
 
-**Read inline images dropped or attached into the chat.** When the user drag-drops, pastes, or uses Claude Desktop's "+ → Add files or photos" attachment, the image becomes an `image_url` content block embedded in the message — Cowork does NOT stage it to a filesystem path the script can reach, and on a text-only backend it usually surfaces as `[Unsupported Image]`.
+**Read inline images dropped, pasted, or attached into the chat.** When the user drops or pastes an image, or uses Claude Desktop's "+ → Add files or photos" attachment, the image becomes an `image_url` content block embedded in the message — there is no filesystem path the bash script can reach, and on a text-only backend it usually surfaces as `[Unsupported Image]`.
 
-If the user shares an image inline and you have no path or URL, suggest one of these in order of convenience:
+For those cases, use the **`dsvision-mcp`** server (sibling tool in this repo) instead — it runs outside Cowork's sandbox and auto-finds Claude Code's `~/.claude/image-cache/` directory.
 
-1. `Cmd+Ctrl+Shift+4` to screenshot to clipboard, then run `analyze-image clipboard` (no temp file management for the user)
-2. Save the image to disk and re-share with the file path
-3. Paste an http/https URL to the image
+If only this skill is available and the user shares an image inline with no path:
 
-Do not try to invent a path or guess at the image content — say what you can't see, then propose one of the three options above.
+1. Save the image to disk and re-share with the file path, or
+2. Paste an http/https URL to the image
+
+Do not try to invent a path or guess at the image content — say what you can't see, then propose one of the two options above.
 
 ## Setup (one-time)
 

@@ -137,17 +137,13 @@ export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
 
 # Or an http(s) URL — passed through directly, no download needed:
 ./skills/deepseek-vision/analyze-image https://example.com/diagram.png
-
-# Or the magic 'clipboard' — reads a PNG from the macOS clipboard
-# (works after Cmd+Ctrl+Shift+4, which screenshots to clipboard):
-./skills/deepseek-vision/analyze-image clipboard
 ```
 
 Loaded by any agent that reads `SKILL.md` files (Claude Code, Cowork, etc.). Default model is `qwen3.6-flash`; override via `DSVISION_MODEL=qwen3.6-plus` for higher quality, or `DSVISION_BASE_URL=...` for a different provider (Xiaomi MiMo-VL via SiliconFlow is one swap away).
 
 Hardening: 10MB image cap with clear error, 60s curl timeout, empty-response detection, exits non-zero with a stderr message on any failure.
 
-> **Inline-image caveat**: this skill needs a file path, URL, or the macOS clipboard — it cannot read images that the user drag-drops, pastes, or attaches via Claude Desktop's "+ → Add files or photos" menu. Those become inline `image_url` blocks the bash script can't reach, and on a text-only backend they show up as `[Unsupported Image]`. The `clipboard` magic input is the smoothest workaround on macOS: `Cmd+Ctrl+Shift+4` screenshots to clipboard, then the skill grabs it. For everything else, save the image to disk and pass the path, or paste a URL — **or use `dsvision-mcp` below**, which handles the inline-image case cleanly.
+> **Inline-image caveat**: this skill needs a file path or URL — it cannot read images that the user drag-drops, pastes, or attaches via Claude Desktop's "+ → Add files or photos" menu. For those use **`dsvision-mcp` below**, which runs outside Cowork's sandbox and auto-finds Claude Code's image cache.
 
 ### dsvision-mcp
 
