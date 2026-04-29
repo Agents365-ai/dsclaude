@@ -191,10 +191,10 @@ analyze_image(focus="图里报的什么错？")    # 自定义 prompt
 **实际效果 — Cowork 3P 跑在 DeepSeek 上，让它"explain the image"：**
 
 <p align="center">
-  <img src="docs/images/dsvision-mcp-cowork-demo.png" alt="Cowork 3P agent 调用 analyze_image MCP 工具描述粘贴的截图" width="800">
+  <img src="docs/images/dsvision-mcp-cowork-demo.png" alt="Cowork 3P agent 调用 analyze_image MCP 工具描述粘贴的截图，右侧 Connectors 面板能看到 dsvision" width="800">
 </p>
 
-用户粘了一张截图、说 "explain the image"，DeepSeek agent 触发 `analyze_image`（trace 里显示 "Used analyze image"），MCP 从 `~/.claude/image-cache/` 取到缓存图、丢给 Qwen3.6-Flash，描述写回上下文。
+用户附了 `image.jpeg`、说 "explain the image"。DeepSeek agent 触发了 `analyze_image` 工具调用（消息中段可见，右侧 Connectors 面板里 `dsvision` 已注册为连接器）。MCP 从 `~/.claude/image-cache/` 取到缓存图、发给 Qwen3.6-Flash，返回了对 Claude Code 欢迎界面的准确描述 —— 包括 Qwen 从图里读出来的模型名 `deepseek-v4-pro[1m]` 和工作目录 `~/github/xxclaude`。
 
 **何时用哪个**（tldr）：
 
