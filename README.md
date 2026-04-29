@@ -188,13 +188,21 @@ analyze_image(image_path="/abs/path/to/foo.png")
 analyze_image(focus="What error is shown?")    # custom prompt
 ```
 
-**In action — Cowork 3P running on DeepSeek, asked to "explain the image":**
+**In action — both surfaces of Claude Desktop 3P, running on DeepSeek:**
+
+*Cowork mode* (task agent — `dsvision` visible in the Connectors panel):
 
 <p align="center">
-  <img src="docs/images/dsvision-mcp-cowork-demo.png" alt="Cowork 3P agent calling analyze_image MCP tool to describe an attached screenshot — dsvision visible in the right-side Connectors panel" width="800">
+  <img src="docs/images/dsvision-mcp-cowork-demo.png" alt="Cowork 3P agent calling analyze_image MCP tool — dsvision visible in the right-side Connectors panel" width="800">
 </p>
 
-The user attached `image.jpeg` and said "explain the image". The DeepSeek agent invoked `analyze_image` (visible as the `analyze_image` tool call mid-message; `dsvision` is registered as a connector in the right sidebar). MCP fetched the cached image from `~/.claude/image-cache/`, sent it to Qwen3.6-Flash, and returned an accurate description of the Claude Code welcome screen — including the model name `deepseek-v4-pro[1m]` and the working directory `~/github/xxclaude` that Qwen could read off the image.
+*Claude Code in Desktop* (Code mode — `Used analyze image` tool call inline):
+
+<p align="center">
+  <img src="docs/images/dsvision-mcp-claudecode-desktop-demo.png" alt="Claude Code in Desktop running on DeepSeek, calling the analyze_image MCP tool" width="800">
+</p>
+
+In both cases the user attached an image and said "explain the image". DeepSeek agent invoked `analyze_image`, MCP fetched the cached image from `~/.claude/image-cache/`, sent it to Qwen3.6-Flash, and returned an accurate description back into the conversation — including details Qwen read off the image like the model name `deepseek-v4-pro[1m]` and the working directory.
 
 **When to pick which** (tldr):
 
