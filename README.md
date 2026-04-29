@@ -145,6 +145,14 @@ Hardening: 10MB image cap with clear error, 60s curl timeout, empty-response det
 
 > **Inline-image caveat**: this skill needs a file path or URL — it cannot read images that the user drag-drops, pastes, or attaches via Claude Desktop's "+ → Add files or photos" menu. For those use **`dsvision-mcp` below**, which runs outside Cowork's sandbox and auto-finds Claude Code's image cache.
 
+**In action — Claude Code (CLI) running on DeepSeek via `dsclaude`:**
+
+<p align="center">
+  <img src="docs/images/deepseek-vision-skill-cli-demo.png" alt="Claude Code CLI loading the deepseek-vision skill and running analyze-image on a pasted screenshot" width="800">
+</p>
+
+User pasted a screenshot and said "explain the image". Claude Code recognized the skill (`Skill(deepseek-vision) Successfully loaded skill`), called `analyze-image` with the cached path under `~/.claude/image-cache/`, and returned an accurate description of the Claude Code startup screen.
+
 ### dsvision-mcp
 
 A small MCP server that does the same job as the `deepseek-vision` skill, but bypasses two limitations the skill hits inside Cowork:

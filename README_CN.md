@@ -145,6 +145,14 @@ export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
 
 > **内联图限制**：这个 skill 需要**文件路径或 URL** —— 用户**拖图、粘贴、或用 Claude Desktop "+ → Add files or photos"** 上传的图它都读不到。这种场景请用下面的 **`dsvision-mcp`**，它跑在 Cowork 沙箱外且能自动找 Claude Code 的 image cache。
 
+**实际效果 — Claude Code (CLI) 跑 `dsclaude` 接 DeepSeek：**
+
+<p align="center">
+  <img src="docs/images/deepseek-vision-skill-cli-demo.png" alt="Claude Code CLI 加载 deepseek-vision skill，对粘贴的截图调 analyze-image" width="800">
+</p>
+
+用户粘了一张截图、说 "explain the image"。Claude Code 自动识别到 skill（`Skill(deepseek-vision) Successfully loaded skill`），用 `~/.claude/image-cache/` 下的缓存路径调 `analyze-image`，返回了对 Claude Code 启动界面的准确描述。
+
 ### dsvision-mcp
 
 跟 `deepseek-vision` skill 干的活一样，但能绕过 Cowork 里 skill 撞到的两个限制：
