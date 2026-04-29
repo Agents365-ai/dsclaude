@@ -32,6 +32,7 @@ Then restart Claude Desktop. Requires DASHSCOPE_API_KEY in env or shell rc.
 from __future__ import annotations
 
 import base64
+import datetime
 import os
 from pathlib import Path
 
@@ -71,14 +72,19 @@ def resolve_api_key() -> str:
     )
 
 
-def find_most_recent_cached_image() -> Path | None:
-    """Return the most recently modified image in ~/.claude/image-cache/, or None."""
+def list_recent_cached_images(limit: int = 10) -> list[Path]:
+    """All images in ~/.claude/image-cache/<session-uuid>/N.png, sorted by mtime desc."""
     if not IMAGE_CACHE.exists():
-        return None
-    images = []
+        return []
+    images: list[Path] = []
     for ext in ("*.png", "*.jpg", "*.jpeg", "*.webp", "*.heic", "*.gif"):
         images.extend(IMAGE_CACHE.rglob(ext))
-    return max(images, key=lambda p: p.stat().st_mtime) if images else None
+    images.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return images[:limit]
+
+
+def _fmt_time(ts: float) -> str:
+    return datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def encode_image(path: Path) -> str:
@@ -111,11 +117,22 @@ def analyze_image(
     Returns:
         Text description, or an "ERROR: ..." string the agent can read and act on.
     """
+    siblings: list[Path] = []
     if not image_path:
-        path = find_most_recent_cached_image()
-        if path is None:
+        recent = list_recent_cached_images()
+        if not recent:
             return ("ERROR: image_path empty and no images found in "
                     f"{IMAGE_CACHE}. Pass an explicit path.")
+        path = recent[0]
+        # Cross-session race detector: if any other recent image's mtime is
+        # within 60s of the chosen one, surface them so the user can spot a
+        # wrong-image pick (e.g., two Claude Code sessions saving images at
+        # nearly the same moment).
+        chosen_mt = path.stat().st_mtime
+        siblings = [
+            p for p in recent[1:]
+            if abs(p.stat().st_mtime - chosen_mt) < 60
+        ]
     else:
         path = Path(image_path).expanduser().resolve()
         if not path.is_file():
@@ -160,7 +177,17 @@ def analyze_image(
     if not content:
         return "ERROR: empty response from model"
 
-    return f"{content}\n\n[analyzed image: {path}]"
+    # Footer: which file was actually analyzed (path + size + mtime), so the
+    # caller can verify the right image was processed when the description
+    # looks suspicious.
+    st = path.stat()
+    footer = f"\n\n[analyzed: {path} ({st.st_size:,} bytes, {_fmt_time(st.st_mtime)})]"
+    if siblings:
+        footer += "\n[other recent images in cache (within 60s of the chosen one):"
+        for s in siblings[:3]:
+            footer += f"\n  {s} ({_fmt_time(s.stat().st_mtime)})"
+        footer += "\n  if I picked the wrong one, call analyze_image again with image_path set explicitly]"
+    return content + footer
 
 
 if __name__ == "__main__":
