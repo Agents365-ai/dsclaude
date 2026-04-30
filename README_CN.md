@@ -160,25 +160,60 @@ export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
 1. **沙箱网络出口管制**。Cowork VM 默认只允许出 `*.anthropic.com` / `*.claude.com`，bash skill 调 `dashscope.aliyuncs.com` 会被防火墙挡。MCP server 是 Claude Desktop 的子进程（**跑在沙箱外**），不受这个限制
 2. **内联图**。Claude Code 把每张拖入/附加/粘贴的图自动缓存到 `~/.claude/image-cache/<session-uuid>/N.png`，宿主机文件系统上。MCP server 调 `analyze_image()` 不传 path 时会自动选最新一张。**拖图、+ 菜单、粘贴的场景这下都能跑通**
 
+**前置条件**
+
+- **Python 3.8+**（macOS 自带 Python 3；`python3 --version` 检查版本）
+- **DASHSCOPE_API_KEY** — [前往 DashScope 获取](https://dashscope.console.aliyun.com/apiKey)（需要阿里云账号）
+
 **安装**
 
 ```bash
-pip install fastmcp requests
+# 1. 安装 Python 依赖
+pip3 install fastmcp requests
+
+# 2. 设置 API Key（加到 ~/.zshrc 中以便重启后仍生效）
+export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
+
+# 3. 获取 dsvision-mcp 的绝对路径
+cd /path/to/dsclaude && pwd    # 例如 /Users/niehu/github/dsclaude
 ```
 
-然后加到 `~/Library/Application Support/Claude-3p/claude_desktop_config.json`（如果还想给非 3P 模式用，同时加到 `Claude/` 那份）：
+然后添加到 Claude Desktop 的 MCP 配置文件中。**根据当前使用的模式选择对应的文件：**
+
+| 模式 | 配置文件 |
+|------|----------|
+| 3P / Gateway（通过 `dsclaude-desktop` 使用 DeepSeek） | `~/Library/Application Support/Claude-3p/claude_desktop_config.json` |
+| 标准 Anthropic 模式 | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+
+如果两种模式都用，两个文件都要加。如果文件尚不存在，直接创建：
 
 ```json
 {
   "mcpServers": {
     "dsvision": {
-      "command": "/Users/<你的用户名>/path/to/dsclaude/dsvision-mcp"
+      "command": "/Users/niehu/github/dsclaude/dsvision-mcp"
     }
   }
 }
 ```
 
-重启 Claude Desktop。`analyze_image` 工具会自动出现在 agent 工具列表里。
+> 把 `/Users/niehu/github/dsclaude/dsvision-mcp` 替换为上面第 3 步得到的实际路径。
+
+重启 Claude Desktop。`analyze_image` 工具会自动出现在 agent 的工具列表中。
+
+**验证安装**
+
+打开 Claude Desktop → 让 agent "分析缓存中最新的图片"。如果 `dsvision` 已连接，在 **Connectors** 面板（Cowork）或消息流中的工具调用（Code 模式）里可以看到。如果工具没出现，检查 **Claude → Settings → Developer → MCP Logs** 中的启动错误日志。
+
+**常见问题排查**
+
+| 现象 | 可能原因 | 解决方法 |
+|------|----------|----------|
+| 工具不显示 | 配置文件选错 | 确认当前使用的模式，对照上表使用对应的文件路径 |
+| 工具不显示 | JSON 格式错误 | 用 `python3 -m json.tool <配置文件>` 校验 |
+| 工具出现但报错 | `DASHSCOPE_API_KEY` 未设置 | 服务器读取 env + ~/.zshrc，确保 key 已 export 到 ~/.zshrc 并重启 Claude Desktop |
+| `ModuleNotFoundError: fastmcp` | Python 版本不对 | 用 `pip3` 而非 `pip`；Claude Desktop 使用系统 Python 3 |
+| 找不到图片 | 路径是相对路径 | 传绝对路径，或留空启用自动检测 |
 
 **Agent 视角的用法**
 

@@ -114,15 +114,18 @@ def analyze_image(
             attached or pasted image).
         focus: Optional prompt to focus the description.
 
-    Returns:
-        Text description, or an "ERROR: ..." string the agent can read and act on.
+    Raises:
+        ValueError: bad input (missing image, file too large, empty response).
+        RuntimeError: API key not found, network error, or DashScope HTTP error.
     """
     siblings: list[Path] = []
     if not image_path:
         recent = list_recent_cached_images()
         if not recent:
-            return ("ERROR: image_path empty and no images found in "
-                    f"{IMAGE_CACHE}. Pass an explicit path.")
+            raise ValueError(
+                "image_path empty and no images found in "
+                f"{IMAGE_CACHE}. Pass an explicit path."
+            )
         path = recent[0]
         # Cross-session race detector: if any other recent image's mtime is
         # within 60s of the chosen one, surface them so the user can spot a
@@ -136,16 +139,13 @@ def analyze_image(
     else:
         path = Path(image_path).expanduser().resolve()
         if not path.is_file():
-            return f"ERROR: image not found: {path}"
+            raise ValueError(f"image not found: {path}")
 
     size = path.stat().st_size
     if size > SIZE_CAP:
-        return f"ERROR: image too large ({size} bytes; limit {SIZE_CAP})"
+        raise ValueError(f"image too large ({size} bytes; limit {SIZE_CAP})")
 
-    try:
-        api_key = resolve_api_key()
-    except RuntimeError as e:
-        return f"ERROR: {e}"
+    api_key = resolve_api_key()
 
     try:
         resp = requests.post(
@@ -164,18 +164,18 @@ def analyze_image(
             timeout=(10, 60),
         )
     except requests.RequestException as e:
-        return f"ERROR: network failure calling DashScope: {e}"
+        raise RuntimeError(f"network failure calling DashScope: {e}")
 
     if resp.status_code != 200:
-        return f"ERROR: DashScope HTTP {resp.status_code}: {resp.text[:500]}"
+        raise RuntimeError(f"DashScope HTTP {resp.status_code}: {resp.text[:500]}")
 
     try:
         content = resp.json()["choices"][0]["message"]["content"]
     except (KeyError, IndexError, ValueError) as e:
-        return f"ERROR: unexpected DashScope response: {e}; raw: {resp.text[:500]}"
+        raise RuntimeError(f"unexpected DashScope response: {e}; raw: {resp.text[:500]}")
 
     if not content:
-        return "ERROR: empty response from model"
+        raise ValueError("empty response from model")
 
     # Footer: which file was actually analyzed (path + size + mtime), so the
     # caller can verify the right image was processed when the description

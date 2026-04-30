@@ -160,25 +160,60 @@ A small MCP server that does the same job as the `deepseek-vision` skill, but by
 1. **Sandbox network egress**. Cowork's VM only allows outbound traffic to `*.anthropic.com` / `*.claude.com`. A bash skill calling `dashscope.aliyuncs.com` is firewalled. The MCP server runs as a Claude Desktop child process (outside the VM) and bypasses the egress filter.
 2. **Inline images**. Claude Code caches every attached/pasted image to `~/.claude/image-cache/<session-uuid>/N.png` on the host filesystem. The MCP server reads from there directly when the agent calls `analyze_image()` with no path — it auto-picks the most recent cached image. So drag-drop / "+ → Add files or photos" / paste workflows now Just Work.
 
+**Prerequisites**
+
+- **Python 3.8+** (macOS ships Python 3; check with `python3 --version`)
+- **DASHSCOPE_API_KEY** — [get one from DashScope](https://dashscope.console.aliyun.com/apiKey) (Alibaba Cloud account required)
+
 **Install**
 
 ```bash
-pip install fastmcp requests
+# 1. Install Python dependencies
+pip3 install fastmcp requests
+
+# 2. Set your API key (add this line to ~/.zshrc so it survives restarts)
+export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
+
+# 3. Get the absolute path to dsvision-mcp
+cd /path/to/dsclaude && pwd    # e.g. /Users/niehu/github/dsclaude
 ```
 
-Then add to `~/Library/Application Support/Claude-3p/claude_desktop_config.json` (and/or the `Claude/` variant for non-3P mode):
+Then add to your Claude Desktop MCP config. **Pick the right file for your mode:**
+
+| Mode | Config file |
+|------|-------------|
+| 3P / Gateway (DeepSeek via `dsclaude-desktop`) | `~/Library/Application Support/Claude-3p/claude_desktop_config.json` |
+| Standard Anthropic mode | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+
+If you use both modes, add the entry to both files. If the file doesn't exist yet, create it:
 
 ```json
 {
   "mcpServers": {
     "dsvision": {
-      "command": "/Users/<you>/path/to/dsclaude/dsvision-mcp"
+      "command": "/Users/niehu/github/dsclaude/dsvision-mcp"
     }
   }
 }
 ```
 
+> Replace `/Users/niehu/github/dsclaude/dsvision-mcp` with the path you got from step 3 above.
+
 Restart Claude Desktop. The `analyze_image` tool will appear to the agent automatically.
+
+**Verify it's working**
+
+Open Claude Desktop → ask the agent to "analyze the most recent image in cache." If `dsvision` is connected you'll see it in the **Connectors** panel (Cowork) or as a tool call in the message stream (Code mode). If the tool doesn't appear, check **Claude → Settings → Developer → MCP Logs** for startup errors.
+
+**Troubleshooting**
+
+| Symptom | Likely cause | Fix |
+|---------|-------------|-----|
+| Tool doesn't appear | Wrong config file | Double-check which mode you're in and use the matching path from the table above |
+| Tool doesn't appear | Invalid JSON | Validate with `python3 -m json.tool <config-file>` |
+| Tool appears but errors | `DASHSCOPE_API_KEY` not set | The server reads env + ~/.zshrc. Make sure the key is exported in ~/.zshrc and restart Claude Desktop |
+| `ModuleNotFoundError: fastmcp` | Wrong Python | Use `pip3` not `pip`; Claude Desktop runs the system Python 3 |
+| Image not found | Path is relative | Always pass an absolute path, or leave empty for auto-detect |
 
 **Usage from the agent's perspective**
 
