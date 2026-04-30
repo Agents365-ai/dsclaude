@@ -5,8 +5,9 @@
 # and restarts Claude Desktop. macOS only.
 #
 # Usage:
-#   dsclaude-desktop      # configure to DeepSeek and restart
-#   dsclaude-desktop -h   # help
+#   dsclaude-desktop         # configure to DeepSeek and restart
+#   dsclaude-desktop update  # git pull latest from the repo
+#   dsclaude-desktop -h      # help
 #
 # Note: Once a third-party gateway is active, Claude Desktop's Chat mode is
 # unavailable — only Cowork (3P) and Code modes work (Chat depends on
@@ -28,6 +29,15 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -h|--help)
       sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    update)
+      SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+      echo "dsclaude-desktop: pulling latest from $SELF_DIR ..."
+      git -C "$SELF_DIR" pull && echo "dsclaude-desktop: updated." || {
+        echo "dsclaude-desktop: git pull failed. Check network or resolve conflicts manually." >&2
+        exit 1
+      }
       exit 0
       ;;
     *)

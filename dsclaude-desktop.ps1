@@ -12,15 +12,17 @@
 #   https://github.com/Agents365-ai/dsclaude/issues
 #
 # Usage:
-#   pwsh ./dsclaude-desktop.ps1        # configure and restart Claude Desktop
-#   pwsh ./dsclaude-desktop.ps1 -h     # help
+#   pwsh ./dsclaude-desktop.ps1          # configure and restart Claude Desktop
+#   pwsh ./dsclaude-desktop.ps1 -Update  # git pull latest from the repo
+#   pwsh ./dsclaude-desktop.ps1 -h       # help
 #
 # Requires: PowerShell 5.1+ (Windows 10+ ships this), Claude Desktop installed,
 # Developer Mode enabled in Claude Desktop, DeepSeek API key.
 
 [CmdletBinding()]
 param(
-    [Alias('h')][switch]$Help
+    [Alias('h')][switch]$Help,
+    [switch]$Update
 )
 
 $ErrorActionPreference = 'Stop'
@@ -42,6 +44,19 @@ $ClaudeExe = $null  # populated by Test-Preflight
 if ($Help) {
     Get-Content $PSCommandPath | Select-Object -Skip 1 -First 22 |
         ForEach-Object { $_ -replace '^# ?', '' }
+    exit 0
+}
+
+if ($Update) {
+    $repo = Split-Path -Parent $PSCommandPath
+    Write-Host "dsclaude-desktop: pulling latest from $repo ..."
+    git -C $repo pull
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host 'dsclaude-desktop: updated.'
+    } else {
+        Write-Error 'dsclaude-desktop: git pull failed. Check network or resolve conflicts manually.'
+        exit 1
+    }
     exit 0
 }
 

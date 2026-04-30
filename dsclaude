@@ -20,6 +20,7 @@
 #   dsclaude fast             # start on deepseek-v4-flash[1m] (cheaper / faster)
 #   dsclaude long             # request a 1M context window (DeepSeek V4 long-context)
 #   dsclaude long fast        # 1M + flash
+#   dsclaude update           # git pull latest from the dsclaude repo
 #   dsclaude --help           # any remaining flag is forwarded to claude
 #
 # Backward-compat aliases (kept for older muscle memory — v4-pro is unified
@@ -36,6 +37,35 @@
 #   /model deepseek-v4-pro[1m]    # switch back to pro
 #
 set -euo pipefail
+
+dsclaude_update() {
+  local repo=""
+  # 1) We're inside the repo checkout (most common).
+  local self_dir
+  self_dir="$(cd "$(dirname "$0")" && pwd)"
+  if [ -d "$self_dir/.git" ]; then
+    repo="$self_dir"
+  fi
+  # 2) DSCLAUDE_HOME env var.
+  if [ -z "$repo" ] && [ -n "${DSCLAUDE_HOME:-}" ]; then
+    repo="$DSCLAUDE_HOME"
+  fi
+  # 3) Common clone location.
+  if [ -z "$repo" ] && [ -d "$HOME/github/dsclaude/.git" ]; then
+    repo="$HOME/github/dsclaude"
+  fi
+  if [ -z "$repo" ]; then
+    echo "dsclaude: cannot find the dsclaude repo for self-update." >&2
+    echo "  Set DSCLAUDE_HOME=/path/to/dsclaude  or  cd into the repo and run ./dsclaude update" >&2
+    exit 1
+  fi
+  echo "dsclaude: pulling latest from $repo ..."
+  git -C "$repo" pull && echo "dsclaude: updated." || {
+    echo "dsclaude: git pull failed. Check network or resolve conflicts manually." >&2
+    exit 1
+  }
+  exit 0
+}
 
 extract_key_from_file() {
   local file="$1"
@@ -75,6 +105,9 @@ HAIKU_MODEL="$FLASH_MODEL"
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    update)
+      dsclaude_update
+      ;;
     long)
       LONG_CTX=1
       shift

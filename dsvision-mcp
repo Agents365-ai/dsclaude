@@ -191,4 +191,22 @@ def analyze_image(
 
 
 if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == "update":
+        import subprocess
+
+        repo = Path(__file__).resolve().parent
+        print(f"dsvision-mcp: pulling latest from {repo} ...")
+        try:
+            subprocess.run(["git", "-C", str(repo), "pull"], check=True)
+            print("dsvision-mcp: updated.")
+        except subprocess.CalledProcessError:
+            print(
+                "dsvision-mcp: git pull failed. Check network or resolve conflicts manually.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        sys.exit(0)
+
     mcp.run()
