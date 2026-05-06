@@ -4,6 +4,8 @@
 
 A small collection of shell scripts that point [Claude Code](https://claude.ai/code) and Claude Desktop at non-Anthropic model backends.
 
+**Author:** [Agents365-ai](https://github.com/Agents365-ai) · [Bilibili](https://space.bilibili.com/441831884)
+
 ## Scripts
 
 | Script | Agent | Platform | Backend | Models |

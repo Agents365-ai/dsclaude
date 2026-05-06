@@ -4,6 +4,8 @@
 
 一套小巧的 Shell 脚本，让 [Claude Code](https://claude.ai/code) 和 Claude Desktop 指向非 Anthropic 的模型后端。
 
+**作者：** [Agents365-ai](https://github.com/Agents365-ai) · [Bilibili](https://space.bilibili.com/441831884)
+
 ## 脚本列表
 
 | 脚本 | Agent | 平台 | 后端 | 模型 |
