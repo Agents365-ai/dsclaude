@@ -12,9 +12,10 @@
 #   https://github.com/Agents365-ai/dsclaude/issues
 #
 # Usage:
-#   pwsh ./dsclaude-desktop.ps1          # configure and restart Claude Desktop
-#   pwsh ./dsclaude-desktop.ps1 -Update  # git pull latest from the repo
-#   pwsh ./dsclaude-desktop.ps1 -h       # help
+#   pwsh ./dsclaude-desktop.ps1                          # auto-detect and configure
+#   pwsh ./dsclaude-desktop.ps1 -ClaudeExePath <path>    # specify custom Claude.exe
+#   pwsh ./dsclaude-desktop.ps1 -Update                  # git pull latest from the repo
+#   pwsh ./dsclaude-desktop.ps1 -h                       # help
 #
 # Requires: PowerShell 5.1+ (Windows 10+ ships this), Claude Desktop installed,
 # Developer Mode enabled in Claude Desktop, DeepSeek API key.
@@ -22,7 +23,8 @@
 [CmdletBinding()]
 param(
     [Alias('h')][switch]$Help,
-    [switch]$Update
+    [switch]$Update,
+    [string]$ClaudeExePath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -70,22 +72,51 @@ function Test-Preflight {
         exit 1
     }
 
-    $candidates = @(
-        (Join-Path $env:LOCALAPPDATA 'AnthropicClaude\Claude.exe'),
-        (Join-Path $env:LOCALAPPDATA 'Programs\AnthropicClaude\Claude.exe'),
-        (Join-Path ${env:ProgramFiles}        'AnthropicClaude\Claude.exe'),
-        (Join-Path ${env:ProgramFiles(x86)}   'AnthropicClaude\Claude.exe')
-    )
-    $found = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if (-not $found) {
-        Write-Error @"
+    # If user provided a custom path, verify it and use it.
+    if ($script:ClaudeExePath) {
+        if (-not (Test-Path $script:ClaudeExePath)) {
+            Write-Error "dsclaude-desktop.ps1: Claude.exe not found at '$script:ClaudeExePath'"
+            exit 1
+        }
+        $script:ClaudeExe = $script:ClaudeExePath
+    } else {
+        # Auto-detect: check Windows Store package first (Get-AppxPackage is
+        # the reliable way to find Store-installed apps without touching the
+        # restricted WindowsApps directory), then standard installs, then the
+        # user-local Packages folder as a fallback.
+        $candidates = @()
+
+        $pkg = Get-AppxPackage -Name 'Claude*' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($pkg) {
+            $candidates += Join-Path $pkg.InstallLocation 'app\claude.exe'
+        }
+
+        $packagesBase = Join-Path $env:LOCALAPPDATA 'Packages'
+        if (Test-Path $packagesBase) {
+            $candidates += Get-ChildItem -Path $packagesBase -Directory -Filter 'Claude_*' -ErrorAction SilentlyContinue |
+                ForEach-Object { Join-Path $_.FullName 'LocalCache\Local\Claude-3p\claude-code\*\claude.exe' } |
+                ForEach-Object { Get-ChildItem -Path $_ -ErrorAction SilentlyContinue } |
+                Select-Object -ExpandProperty FullName
+        }
+
+        $candidates += @(
+            (Join-Path $env:LOCALAPPDATA 'AnthropicClaude\Claude.exe'),
+            (Join-Path $env:LOCALAPPDATA 'Programs\AnthropicClaude\Claude.exe'),
+            (Join-Path ${env:ProgramFiles}        'AnthropicClaude\Claude.exe'),
+            (Join-Path ${env:ProgramFiles(x86)}   'AnthropicClaude\Claude.exe')
+        )
+        $found = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if (-not $found) {
+            Write-Error @"
 dsclaude-desktop.ps1: Claude Desktop not found.
-Install from https://claude.ai/download. Looked in:
+Install from https://claude.ai/download, or pass -ClaudeExePath to specify
+your custom install location. Looked in:
   $($candidates -join "`n  ")
 "@
-        exit 1
+            exit 1
+        }
+        $script:ClaudeExe = $found
     }
-    $script:ClaudeExe = $found
 
     $devSettings = Join-Path $env:APPDATA 'Claude\developer_settings.json'
     if (-not (Test-Path $devSettings)) {
