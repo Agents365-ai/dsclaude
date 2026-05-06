@@ -179,7 +179,7 @@ export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
 跟 `deepseek-vision` skill 干的活一样，但能绕过 Cowork 里 skill 撞到的两个限制：
 
 1. **沙箱网络出口管制**。Cowork VM 默认只允许出 `*.anthropic.com` / `*.claude.com`，bash skill 调 `dashscope.aliyuncs.com` 会被防火墙挡。MCP server 是 Claude Desktop 的子进程（**跑在沙箱外**），不受这个限制
-2. **内联图**。Claude Code 把每张拖入/附加/粘贴的图自动缓存到 `~/.claude/image-cache/<session-uuid>/N.png`，宿主机文件系统上。MCP server 调 `analyze_image()` 不传 path 时会自动选最新一张。**拖图、+ 菜单、粘贴的场景这下都能跑通**
+2. **内联图**。Claude Code 把每张拖入/附加/粘贴的图自动缓存到 `~/.claude/image-cache/<session-uuid>/N.png`，宿主机文件系统上。MCP server 调 `analyze_image()` 不传 path 时会自动选最新一张。**拖图、+ 菜单、粘贴的场景这下都能跑通（仅限 macOS。Windows Cowork 不会把内联图缓存到磁盘，请手动保存图片后传绝对路径。）**
 
 **前置条件**
 
@@ -235,6 +235,7 @@ cd /path/to/dsclaude && pwd    # 例如 /Users/niehu/github/dsclaude
 | 工具出现但报错 | `DASHSCOPE_API_KEY` 未设置 | 服务器读取 env + ~/.zshrc，确保 key 已 export 到 ~/.zshrc 并重启 Claude Desktop |
 | `ModuleNotFoundError: fastmcp` | Python 版本不对 | 用 `pip3` 而非 `pip`；Claude Desktop 使用系统 Python 3 |
 | 找不到图片 | 路径是相对路径 | 传绝对路径，或留空启用自动检测 |
+| 找不到图片（Windows Cowork） | 内联图在 Windows 上不会缓存 | Windows Cowork（3P Gateway）不会把粘贴/拖拽的图片缓存到 `~/.claude/image-cache/`。自动检测不可用——先把图片保存到磁盘，传完整路径：`analyze_image(image_path="C:\Users\...\screenshot.png")` |
 
 **Agent 视角的用法**
 

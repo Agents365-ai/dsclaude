@@ -179,7 +179,7 @@ User pasted a screenshot and said "explain the image". Claude Code recognized th
 A small MCP server that does the same job as the `deepseek-vision` skill, but bypasses two limitations the skill hits inside Cowork:
 
 1. **Sandbox network egress**. Cowork's VM only allows outbound traffic to `*.anthropic.com` / `*.claude.com`. A bash skill calling `dashscope.aliyuncs.com` is firewalled. The MCP server runs as a Claude Desktop child process (outside the VM) and bypasses the egress filter.
-2. **Inline images**. Claude Code caches every attached/pasted image to `~/.claude/image-cache/<session-uuid>/N.png` on the host filesystem. The MCP server reads from there directly when the agent calls `analyze_image()` with no path — it auto-picks the most recent cached image. So drag-drop / "+ → Add files or photos" / paste workflows now Just Work.
+2. **Inline images**. Claude Code caches every attached/pasted image to `~/.claude/image-cache/<session-uuid>/N.png` on the host filesystem. The MCP server reads from there directly when the agent calls `analyze_image()` with no path — it auto-picks the most recent cached image. So drag-drop / "+ → Add files or photos" / paste workflows now Just Work. **(macOS only. On Windows Cowork, inline images are not cached to disk — pass the file path explicitly instead.)**
 
 **Prerequisites**
 
@@ -235,6 +235,7 @@ Open Claude Desktop → ask the agent to "analyze the most recent image in cache
 | Tool appears but errors | `DASHSCOPE_API_KEY` not set | The server reads env + ~/.zshrc. Make sure the key is exported in ~/.zshrc and restart Claude Desktop |
 | `ModuleNotFoundError: fastmcp` | Wrong Python | Use `pip3` not `pip`; Claude Desktop runs the system Python 3 |
 | Image not found | Path is relative | Always pass an absolute path, or leave empty for auto-detect |
+| Image not found (Windows Cowork) | Inline images not cached on Windows | Windows Cowork (3P Gateway) does not cache pasted/dragged images to `~/.claude/image-cache/`. Auto-detect won't work — save the image to disk first and pass the full path: `analyze_image(image_path="C:\Users\...\screenshot.png")` |
 
 **Usage from the agent's perspective**
 
