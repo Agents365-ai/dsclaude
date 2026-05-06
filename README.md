@@ -9,6 +9,8 @@ A small collection of shell scripts that point [Claude Code](https://claude.ai/c
 | Script | Agent | Platform | Backend | Models |
 |--------|-------|----------|---------|--------|
 | **[dsclaude](dsclaude)** | Claude Code (CLI) | macOS / Linux | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro[1m]` (default, unified reasoning) · `deepseek-v4-flash[1m]` (fast / haiku tier) |
+| **[dsclaude-proxy.mjs](dsclaude-proxy.mjs)** | (internal) local HTTP proxy | macOS / Linux | DeepSeek API | sanitizes `metadata.user_id` for DeepSeek compatibility |
+| **[mmclaude](mmclaude)** | Claude Code (CLI) | macOS / Linux | Xiaomi MiMo (Anthropic-compatible endpoint) | `mimo-v2.5-pro` |
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (GUI) | macOS | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro` · `deepseek-v4-flash` (1M context on both) |
 | **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows (untested) | DeepSeek API (Anthropic-compatible endpoint) | same as above |
 | **[skills/deepseek-vision](skills/deepseek-vision/)** | skill (any agent that loads SKILL.md) | macOS / Linux | DashScope (Anthropic / OpenAI-compatible) | `qwen3.6-flash` (default vision) |
@@ -50,9 +52,26 @@ dsclaude long fast       # 1M + flash
 
 Sets the DeepSeek-recommended env vars under the hood: `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`, Opus/Sonnet/Haiku model mappings, `CLAUDE_CODE_SUBAGENT_MODEL`, and `CLAUDE_CODE_EFFORT_LEVEL=max` (override via `DSCLAUDE_EFFORT`).
 
+`dsclaude` automatically starts a lightweight local proxy ([`dsclaude-proxy.mjs`](dsclaude-proxy.mjs)) that sanitizes `metadata.user_id` before forwarding requests to DeepSeek. Claude Code hashes `{device_id, account_uuid, session_id}` into `user_id`, which can produce base64 chars (`+`, `/`, `=`) that DeepSeek rejects with `400 Invalid 'user_id'` ([#5](https://github.com/Agents365-ai/dsclaude/issues/5)). The proxy strips invalid characters so the field matches DeepSeek's `^[a-zA-Z0-9_-]+$` requirement. The proxy is auto-managed (starts on launch, cleans up on exit) and listens on port 19876 by default — override with `DSCLAUDE_PROXY_PORT`.
+
 In-session: `/model deepseek-v4-flash[1m]` ↔ `/model deepseek-v4-pro[1m]`.
 
 > **Note:** Both `deepseek-v4-pro` and `deepseek-v4-flash` natively support a 1M-token context window. In Claude Code, the `[1m]` suffix is required on each model name to enable it (`deepseek-v4-pro[1m]`, `deepseek-v4-flash[1m]`). `dsclaude` sets this for you.
+
+### mmclaude
+
+Follows the official Xiaomi MiMo Claude Code configuration guide. One model (`mimo-v2.5-pro`), no fast/long aliases.
+
+```bash
+export MIMO_API_KEY=sk-xxxxxxxxxxxxxxxxxx       # pay-as-you-go (add to ~/.zshrc)
+# or
+export MIMO_API_KEY=tp-xxxxxxxxxxxxxxxxxx       # Token Plan
+
+mmclaude                  # start on mimo-v2.5-pro
+mmclaude update           # git pull this repo
+```
+
+The base URL is auto-detected from the key prefix (`sk-*` → `https://api.xiaomimimo.com/anthropic`, `tp-*` → `https://token-plan-cn.xiaomimimo.com/anthropic`). Token Plan subscribers with a custom subdomain can override with `MIMO_BASE_URL=...`. Sets all four model slots (main / Opus / Sonnet / Haiku) to `mimo-v2.5-pro` and unsets `ANTHROPIC_API_KEY` per the MiMo docs (lingering official credentials shadow the bearer token).
 
 ### dsclaude-desktop
 
