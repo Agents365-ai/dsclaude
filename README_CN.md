@@ -11,7 +11,6 @@
 | 脚本 | Agent | 平台 | 后端 | 模型 |
 |------|-------|------|------|------|
 | **[dsclaude](dsclaude)** | Claude Code (CLI) | macOS / Linux | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro[1m]`（默认，统一推理）· `deepseek-v4-flash[1m]`（快速 / haiku 档位） |
-| **[dsclaude-proxy.mjs](dsclaude-proxy.mjs)** | （内部）本地 HTTP 代理 | macOS / Linux | DeepSeek API | 清洗 `metadata.user_id`，兼容 DeepSeek 校验 |
 | **[mmclaude](mmclaude)** | Claude Code (CLI) | macOS / Linux | 小米 MiMo（Anthropic 兼容端点） | `mimo-v2.5-pro` |
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (GUI) | macOS | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro` · `deepseek-v4-flash`（均启用 1M 上下文） |
 | **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows（未实测） | DeepSeek API（Anthropic 兼容端点） | 同上 |
@@ -53,8 +52,6 @@ dsclaude long fast       # 1M + flash
 ```
 
 脚本会自动按 DeepSeek 官方建议导出全套环境变量：`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`、Opus/Sonnet/Haiku 模型映射、`CLAUDE_CODE_SUBAGENT_MODEL` 以及 `CLAUDE_CODE_EFFORT_LEVEL=max`（可用 `DSCLAUDE_EFFORT` 覆盖）。
-
-`dsclaude` 会自动启动一个轻量本地代理（[`dsclaude-proxy.mjs`](dsclaude-proxy.mjs)），在请求转发到 DeepSeek 前清洗 `metadata.user_id`。Claude Code 将 `{device_id, account_uuid, session_id}` 哈希为 `user_id`，哈希值可能包含 `+`、`/`、`=` 等 base64 字符，DeepSeek 会返回 `400 Invalid 'user_id'`（[#5](https://github.com/Agents365-ai/dsclaude/issues/5)）。代理会剥离非法字符，使字段满足 `^[a-zA-Z0-9_-]+$` 要求。代理自动管理（启动时开启，退出时清理），默认监听 19876 端口，可通过 `DSCLAUDE_PROXY_PORT` 覆盖。
 
 会话中切换：`/model deepseek-v4-flash[1m]` ↔ `/model deepseek-v4-pro[1m]`。
 

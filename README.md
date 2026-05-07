@@ -11,7 +11,6 @@ A small collection of shell scripts that point [Claude Code](https://claude.ai/c
 | Script | Agent | Platform | Backend | Models |
 |--------|-------|----------|---------|--------|
 | **[dsclaude](dsclaude)** | Claude Code (CLI) | macOS / Linux | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro[1m]` (default, unified reasoning) · `deepseek-v4-flash[1m]` (fast / haiku tier) |
-| **[dsclaude-proxy.mjs](dsclaude-proxy.mjs)** | (internal) local HTTP proxy | macOS / Linux | DeepSeek API | sanitizes `metadata.user_id` for DeepSeek compatibility |
 | **[mmclaude](mmclaude)** | Claude Code (CLI) | macOS / Linux | Xiaomi MiMo (Anthropic-compatible endpoint) | `mimo-v2.5-pro` |
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (GUI) | macOS | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro` · `deepseek-v4-flash` (1M context on both) |
 | **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows (untested) | DeepSeek API (Anthropic-compatible endpoint) | same as above |
@@ -53,8 +52,6 @@ dsclaude long fast       # 1M + flash
 ```
 
 Sets the DeepSeek-recommended env vars under the hood: `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`, Opus/Sonnet/Haiku model mappings, `CLAUDE_CODE_SUBAGENT_MODEL`, and `CLAUDE_CODE_EFFORT_LEVEL=max` (override via `DSCLAUDE_EFFORT`).
-
-`dsclaude` automatically starts a lightweight local proxy ([`dsclaude-proxy.mjs`](dsclaude-proxy.mjs)) that sanitizes `metadata.user_id` before forwarding requests to DeepSeek. Claude Code hashes `{device_id, account_uuid, session_id}` into `user_id`, which can produce base64 chars (`+`, `/`, `=`) that DeepSeek rejects with `400 Invalid 'user_id'` ([#5](https://github.com/Agents365-ai/dsclaude/issues/5)). The proxy strips invalid characters so the field matches DeepSeek's `^[a-zA-Z0-9_-]+$` requirement. The proxy is auto-managed (starts on launch, cleans up on exit) and listens on port 19876 by default — override with `DSCLAUDE_PROXY_PORT`.
 
 In-session: `/model deepseek-v4-flash[1m]` ↔ `/model deepseek-v4-pro[1m]`.
 
