@@ -196,7 +196,11 @@ ensure_meta_entry() {
 restart_claude() {
   killall Claude 2>/dev/null || true
   sleep 1
-  open -a Claude
+  # NODE_ENV=production disables the dev-only validator (`Hte` in app.asar) that
+  # rejects non-Anthropic model names and would otherwise refuse "deepseek-v4-pro".
+  # Electron does not set NODE_ENV by default in packaged apps, so the validator
+  # is incorrectly active in production. Forcing it here restores the gateway path.
+  open -a Claude --env NODE_ENV=production
 }
 
 preflight
