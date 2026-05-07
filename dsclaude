@@ -4,6 +4,7 @@
 # Follows the official guide:
 #   https://api-docs.deepseek.com/guides/anthropic_api
 #   https://api-docs.deepseek.com/guides/coding_agents
+#   https://api-docs.deepseek.com/quick_start/agent_integrations/claude_code
 #
 # Reads DEEPSEEK_API_KEY from the environment first, then falls back to
 # ~/.zshrc / ~/.bashrc / ~/.bash_profile / ~/.profile if not already exported.
@@ -37,8 +38,6 @@
 #   /model deepseek-v4-pro[1m]    # switch back to pro
 #
 set -euo pipefail
-
-self_dir="$(cd "$(dirname "$0")" && pwd)"
 
 dsclaude_update() {
   local repo=""
@@ -143,36 +142,7 @@ else
   OTHER_DESC="DeepSeek V4 Pro — full reasoning"
 fi
 
-# Start local proxy to fix DeepSeek's metadata.user_id validation.
-# Claude Code sends a hashed user_id that may contain base64 chars (+, /, =)
-# which DeepSeek rejects with 400. The proxy sanitizes it to [a-zA-Z0-9_-].
-# https://github.com/Agents365-ai/dsclaude/issues/5
-PROXY_SCRIPT="$self_dir/dsclaude-proxy.mjs"
-PROXY_PID=""
-PROXY_PORT="${DSCLAUDE_PROXY_PORT:-19876}"
-
-cleanup_proxy() {
-  if [ -n "$PROXY_PID" ] && kill -0 "$PROXY_PID" 2>/dev/null; then
-    kill "$PROXY_PID" 2>/dev/null
-    wait "$PROXY_PID" 2>/dev/null || true
-  fi
-}
-trap cleanup_proxy EXIT
-
-if [ -f "$PROXY_SCRIPT" ]; then
-  node "$PROXY_SCRIPT" &>/dev/null &
-  PROXY_PID=$!
-  # Wait for proxy to be ready
-  for _ in $(seq 1 30); do
-    if kill -0 "$PROXY_PID" 2>/dev/null && nc -z 127.0.0.1 "$PROXY_PORT" 2>/dev/null; then
-      break
-    fi
-    sleep 0.1
-  done
-  export ANTHROPIC_BASE_URL="http://127.0.0.1:${PROXY_PORT}/anthropic"
-else
-  export ANTHROPIC_BASE_URL="https://api.deepseek.com/anthropic"
-fi
+export ANTHROPIC_BASE_URL="https://api.deepseek.com/anthropic"
 
 export ANTHROPIC_AUTH_TOKEN="$API_KEY"
 export API_TIMEOUT_MS="600000"
