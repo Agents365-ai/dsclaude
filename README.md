@@ -2,277 +2,198 @@
 
 [中文文档](README_CN.md)
 
-A small collection of shell scripts that point [Claude Code](https://claude.ai/code) and Claude Desktop at non-Anthropic model backends.
+A collection of launchers and configurators that point [Claude Code](https://claude.ai/code) and Claude Desktop at third-party model backends (DeepSeek, Xiaomi MiMo, etc.).
 
 **Author:** [Agents365-ai](https://github.com/Agents365-ai) · [Bilibili](https://space.bilibili.com/441831884)
 
-## Scripts
+---
 
-| Script | Agent | Platform | Backend | Models |
-|--------|-------|----------|---------|--------|
-| **[dsclaude](dsclaude)** | Claude Code (CLI) | macOS / Linux | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro[1m]` (default, unified reasoning) · `deepseek-v4-flash[1m]` (fast / haiku tier) |
-| **[mmclaude](mmclaude)** | Claude Code (CLI) | macOS / Linux | Xiaomi MiMo (Anthropic-compatible endpoint) | `mimo-v2.5-pro` |
-| **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (GUI) | macOS | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro` · `deepseek-v4-flash` (1M context on both) |
-| **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows (Store & standard install) | DeepSeek API (Anthropic-compatible endpoint) | same as above |
-| **[skills/deepseek-vision](skills/deepseek-vision/)** | skill (any agent that loads SKILL.md) | macOS / Linux | DashScope (Anthropic / OpenAI-compatible) | `qwen3.6-flash` (default vision) |
-| **[dsvision-mcp](dsvision-mcp)** | MCP server (Claude Desktop / Cowork / any MCP client) | macOS / Linux | DashScope | `qwen3.6-flash` (default vision) |
+## Tools
 
-`dsclaude` exposes the alternate model in Claude Code's `/model` picker so you can hot-swap mid-session, sets `ANTHROPIC_DEFAULT_HAIKU_MODEL` so background/cheap tasks route to the fast model, and honors optional env overrides for context window and output token limits.
+| Tool | What it does | Platform | Backend |
+|------|-------------|----------|---------|
+| **[dsclaude](dsclaude)** | Claude Code CLI launcher | macOS / Linux | DeepSeek |
+| **[mmclaude](mmclaude)** | Claude Code CLI launcher | macOS / Linux | Xiaomi MiMo |
+| **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop GUI configurator | macOS | DeepSeek |
+| **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop GUI configurator | Windows | DeepSeek |
+| **[skills/deepseek-vision](skills/deepseek-vision/)** | Vision skill (zero deps) | macOS / Linux | DashScope Qwen |
+| **[dsvision-mcp](dsvision-mcp)** | Vision MCP server | macOS / Linux | DashScope Qwen |
 
-`dsclaude-desktop` is a one-command configurator for Claude Desktop's built-in **Configure Third-Party Inference** feature (Developer menu). It writes the same config that the dialog would write — pre-filled for DeepSeek — and restarts the app. Claude Desktop's launch chooser handles switching back to Anthropic mode natively, so there's no `--revert` flag.
+---
 
-## Quick start
+## Quick start on macOS
 
 ```bash
 git clone https://github.com/Agents365-ai/dsclaude.git
 cd dsclaude
+chmod +x dsclaude
+./dsclaude
 ```
 
-That's it — the bash scripts ship with the executable bit set, so no `chmod` is needed. Each tool has its own usage section below.
+---
 
-To make `dsclaude` (Claude Code launcher) globally available:
+## dsclaude — Claude Code on DeepSeek
 
-```bash
-sudo cp dsclaude /usr/local/bin/
-```
-
-The other tools (`dsclaude-desktop`, `skills/deepseek-vision/analyze-image`) reference their own paths or directories, so leave them in the repo.
-
-### dsclaude
-
-Follows the official DeepSeek guide: [Integrate with Coding Agents](https://api-docs.deepseek.com/guides/coding_agents) / [Anthropic API](https://api-docs.deepseek.com/guides/anthropic_api).
+Follows the [DeepSeek Anthropic API](https://api-docs.deepseek.com/guides/anthropic_api) guide.
 
 ```bash
-export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # add this line to ~/.zshrc or ~/.bashrc
+export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # add to ~/.zshrc
 
-dsclaude                 # start on deepseek-v4-pro (default, full reasoning)
-dsclaude fast            # start on deepseek-v4-flash[1m] (cheaper / faster)
-dsclaude long            # request a 1M context window (1,048,576 tokens)
+dsclaude                 # default: deepseek-v4-pro (full reasoning)
+dsclaude fast            # deepseek-v4-flash (cheaper / faster)
+dsclaude long            # request 1M context window
 dsclaude long fast       # 1M + flash
 ```
 
-Sets the DeepSeek-recommended env vars under the hood: `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`, Opus/Sonnet/Haiku model mappings, `CLAUDE_CODE_SUBAGENT_MODEL`, and `CLAUDE_CODE_EFFORT_LEVEL=max` (override via `DSCLAUDE_EFFORT`).
+Sets the DeepSeek-recommended env vars (`ANTHROPIC_BASE_URL`, model mappings, `CLAUDE_CODE_EFFORT_LEVEL=max`), and exposes the alternate model in Claude Code's `/model` picker. Override context window via `DSCLAUDE_MAX_TOKENS` and effort via `DSCLAUDE_EFFORT`.
 
-In-session: `/model deepseek-v4-flash[1m]` ↔ `/model deepseek-v4-pro[1m]`.
+> Both models natively support 1M-token context. The `[1m]` suffix (e.g. `deepseek-v4-pro[1m]`) is required in Claude Code — `dsclaude` sets it automatically.
 
-> **Note:** Both `deepseek-v4-pro` and `deepseek-v4-flash` natively support a 1M-token context window. In Claude Code, the `[1m]` suffix is required on each model name to enable it (`deepseek-v4-pro[1m]`, `deepseek-v4-flash[1m]`). `dsclaude` sets this for you.
+---
 
-### mmclaude
-
-Follows the official Xiaomi MiMo Claude Code configuration guide. One model (`mimo-v2.5-pro`), no fast/long aliases.
+## mmclaude — Claude Code on Xiaomi MiMo
 
 ```bash
-export MIMO_API_KEY=sk-xxxxxxxxxxxxxxxxxx       # pay-as-you-go (add to ~/.zshrc)
+export MIMO_API_KEY=sk-xxxxxxxxxxxxxxxxxx       # pay-as-you-go
 # or
 export MIMO_API_KEY=tp-xxxxxxxxxxxxxxxxxx       # Token Plan
 
 mmclaude                  # start on mimo-v2.5-pro
-mmclaude update           # git pull this repo
+mmclaude update           # git pull
 ```
 
-The base URL is auto-detected from the key prefix (`sk-*` → `https://api.xiaomimimo.com/anthropic`, `tp-*` → `https://token-plan-cn.xiaomimimo.com/anthropic`). Token Plan subscribers with a custom subdomain can override with `MIMO_BASE_URL=...`. Sets all four model slots (main / Opus / Sonnet / Haiku) to `mimo-v2.5-pro` and unsets `ANTHROPIC_API_KEY` per the MiMo docs (lingering official credentials shadow the bearer token).
+Auto-detects base URL from the key prefix (`sk-*` → public, `tp-*` → Token Plan); override with `MIMO_BASE_URL`. Sets all four model slots to `mimo-v2.5-pro` and unsets `ANTHROPIC_API_KEY` (per MiMo docs).
 
-### dsclaude-desktop
+---
 
-A one-command configurator for Claude Desktop's **built-in third-party inference** feature, pre-filled for DeepSeek.
+## dsclaude-desktop — Claude Desktop GUI configurator
 
-This is **not** a hack or workaround. Anthropic ships a "Configure Third-Party Inference" dialog inside Claude Desktop (Developer menu) where you can manually point the app at any Anthropic-compatible endpoint. The dialog has six required fields and a model list. `dsclaude-desktop` writes the same JSON config that the dialog would write, then restarts the app — saving you the menu navigation.
+One-command configurator for Claude Desktop's built-in **Third-Party Inference** feature (Developer menu), pre-filled for DeepSeek.
 
-#### Prerequisites
+### Prerequisites
 
-1. **Claude Desktop installed** (download from [claude.ai/download](https://claude.ai/download))
-2. **Developer Mode enabled** in Claude Desktop
-   - Help → Troubleshooting → Enable Developer Mode
-   - Only needs to be done once. The script verifies this on each run.
-3. **DeepSeek API Key** in `$DEEPSEEK_API_KEY`, your shell rc, or paste at the prompt
+1. Claude Desktop installed ([claude.ai/download](https://claude.ai/download))
+2. Developer Mode enabled (Help → Troubleshooting → Enable Developer Mode, once)
+3. `DEEPSEEK_API_KEY` environment variable set
 
-#### Usage
+### Usage
 
 ```bash
-export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # or add to ~/.zshrc
-
-./dsclaude-desktop      # configure and restart Claude Desktop
-./dsclaude-desktop -h   # help
+export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx
+./dsclaude-desktop        # configure and restart
+./dsclaude-desktop -h     # help
 ```
 
-What it does:
-1. Generates an entry under `~/Library/Application Support/Claude-3p/configLibrary/` with your DeepSeek key, base URL `https://api.deepseek.com/anthropic`, auth scheme `bearer`, and `deepseek-v4-pro` + `deepseek-v4-flash` (1M context) as the model list
-2. Sets `appliedId` to your entry in `_meta.json` (existing entries are preserved)
-3. Restarts Claude Desktop with `killall Claude && open -a Claude`
+Generates an entry under `~/Library/Application Support/Claude-3p/configLibrary/`, sets it as `appliedId` in `_meta.json`, then restarts the app. Existing GUI-added entries are preserved.
 
-#### Switching modes
+### Switching modes
 
-Claude Desktop's launch chooser handles mode switching natively — no `--revert` flag needed:
+Claude Desktop's launch chooser handles Anthropic ↔ Gateway switching natively — no `--revert` flag. Click your profile → **Disconnect** (or sign out), then pick the other option at next launch.
 
-<p align="center">
-  <img src="docs/images/launch-chooser.png" alt="Claude Desktop launch chooser: Continue with Gateway or Sign in to Anthropic" width="600">
-</p>
+> Classic **Chat** (claude.ai-style) is unavailable in Gateway mode — it depends on Anthropic-hosted features not exposed via the inference API. Switch back to Anthropic mode to use it.
 
-Even on the Anthropic sign-in page you can swap back to Gateway:
-
-<p align="center">
-  <img src="docs/images/sign-in-or-gateway.png" alt="Sign In page with 'Or continue with Gateway' link at bottom" width="600">
-</p>
-
-To switch: click your profile in Claude Desktop → **Disconnect** (or sign out) → at next launch, pick the other option.
-
-#### What you get
-
-In Gateway mode the **Cowork** and **Code** modes route to DeepSeek. The model picker shows your masked DeepSeek models:
-
-<p align="center">
-  <img src="docs/images/cowork-3p-gateway.png" alt="Cowork mode running on DeepSeek via Gateway" width="700">
-</p>
-
-<p align="center">
-  <img src="docs/images/code-3p-gateway.png" alt="Code mode in xxclaude project running on DeepSeek via Gateway" width="700">
-</p>
-
-> **One feature is unavailable**: classic **Chat** (claude.ai-style conversation). Chat depends on Anthropic-hosted features (memory, projects, artifacts, web search) that aren't part of the inference API surface. To use Chat, switch back to Anthropic mode via the launch chooser.
-
-#### Windows
-
-`dsclaude-desktop.ps1` is the PowerShell port. Same JSON schema, same flow:
+### Windows
 
 ```powershell
 $env:DEEPSEEK_API_KEY = "sk-xxxxxxxxxxxxxxxxxx"
 pwsh ./dsclaude-desktop.ps1
 ```
 
+Writes to `%APPDATA%\Claude-3p\configLibrary\`. > Untested by the maintainer — please [open an issue](https://github.com/Agents365-ai/dsclaude/issues) if anything misbehaves.
+
+---
 Prerequisites: Claude Desktop installed (Store or standard), DeepSeek API key. Unlike macOS, Developer Mode is **auto-enabled** by the script — no manual GUI toggle needed.
 
 Config path: `%LOCALAPPDATA%\Claude-3p\configLibrary\` (for Store/MSIX installs, the script also writes to the sandboxed package path as a fallback).
 
 Tested on Windows 11 with Claude Desktop 1.7196 (Windows Store, arm64).
 
-### deepseek-vision skill
+## deepseek-vision skill — Vision (zero-dependency)
 
-A skill that gives any agent (especially text-only ones like DeepSeek) the ability to "see" images. When the agent encounters an image — file path or URL — it calls `skills/deepseek-vision/analyze-image`, which sends the image to **Qwen3.6-Flash** (DashScope) and returns a text description the agent can reason over.
+Gives text-only agents (like DeepSeek) the ability to "see" images. When the agent encounters an image, it calls `analyze-image`, which sends it to Qwen3.6-Flash and returns a text description.
 
 ```bash
 export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
-
-# Local file:
 ./skills/deepseek-vision/analyze-image /path/to/screenshot.png "What error is shown?"
-
-# Or an http(s) URL — passed through directly, no download needed:
 ./skills/deepseek-vision/analyze-image https://example.com/diagram.png
 ```
 
-Loaded by any agent that reads `SKILL.md` files (Claude Code, Cowork, etc.). Default model is `qwen3.6-flash`; override via `DSVISION_MODEL=qwen3.6-plus` for higher quality, or `DSVISION_BASE_URL=...` for a different provider (Xiaomi MiMo-VL via SiliconFlow is one swap away).
+Works with any agent that loads `SKILL.md` (Claude Code, Cowork, etc.). Default model `qwen3.6-flash`; override via `DSVISION_MODEL` and `DSVISION_BASE_URL`.
 
-Hardening: 10MB image cap with clear error, 60s curl timeout, empty-response detection, exits non-zero with a stderr message on any failure.
+> **Limitation**: requires a file path or URL — inline images (drag-drop, paste, "+ → Add files or photos") aren't supported. Use **dsvision-mcp** below for that.
 
-> **Inline-image caveat**: this skill needs a file path or URL — it cannot read images that the user drag-drops, pastes, or attaches via Claude Desktop's "+ → Add files or photos" menu. For those use **`dsvision-mcp` below**, which runs outside Cowork's sandbox and auto-finds Claude Code's image cache.
+---
 
-**In action — Claude Code (CLI) running on DeepSeek via `dsclaude`:**
+## dsvision-mcp — Vision (MCP server)
 
-<p align="center">
-  <img src="docs/images/deepseek-vision-skill-cli-demo.png" alt="Claude Code CLI loading the deepseek-vision skill and running analyze-image on a pasted screenshot" width="800">
-</p>
+Same functionality as the skill above, but runs as an MCP server — bypassing two Cowork sandbox limitations:
+1. **Network egress** — the skill's DashScope API calls are firewalled inside Cowork's VM; the MCP server runs outside it
+2. **Inline images** — auto-picks the latest cached image from `~/.claude/image-cache/`, so drag-drop/paste/"+" workflows work (macOS only; Windows Cowork doesn't cache inline images to disk)
 
-User pasted a screenshot and said "explain the image". Claude Code recognized the skill (`Skill(deepseek-vision) Successfully loaded skill`), called `analyze-image` with the cached path under `~/.claude/image-cache/`, and returned an accurate description of the Claude Code startup screen.
-
-### dsvision-mcp
-
-A small MCP server that does the same job as the `deepseek-vision` skill, but bypasses two limitations the skill hits inside Cowork:
-
-1. **Sandbox network egress**. Cowork's VM only allows outbound traffic to `*.anthropic.com` / `*.claude.com`. A bash skill calling `dashscope.aliyuncs.com` is firewalled. The MCP server runs as a Claude Desktop child process (outside the VM) and bypasses the egress filter.
-2. **Inline images**. Claude Code caches every attached/pasted image to `~/.claude/image-cache/<session-uuid>/N.png` on the host filesystem. The MCP server reads from there directly when the agent calls `analyze_image()` with no path — it auto-picks the most recent cached image. So drag-drop / "+ → Add files or photos" / paste workflows now Just Work. **(macOS only. On Windows Cowork, inline images are not cached to disk — pass the file path explicitly instead.)**
-
-**Prerequisites**
-
-- **Python 3.8+** (macOS ships Python 3; check with `python3 --version`)
-- **DASHSCOPE_API_KEY** — [get one from DashScope](https://dashscope.console.aliyun.com/apiKey) (Alibaba Cloud account required)
-
-**Install**
+### Setup
 
 ```bash
-# 1. Install Python dependencies
 pip3 install fastmcp requests
-
-# 2. Set your API key (add this line to ~/.zshrc so it survives restarts)
-export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
-
-# 3. Get the absolute path to dsvision-mcp
-cd /path/to/dsclaude && pwd    # e.g. /Users/niehu/github/dsclaude
+export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # add to ~/.zshrc
+cd /path/to/dsclaude && pwd    # note the absolute path
 ```
 
-Then add to your Claude Desktop MCP config. **Pick the right file for your mode:**
+Add to the MCP config file matching your mode:
 
 | Mode | Config file |
 |------|-------------|
-| 3P / Gateway (DeepSeek via `dsclaude-desktop`) | `~/Library/Application Support/Claude-3p/claude_desktop_config.json` |
-| Standard Anthropic mode | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-
-If you use both modes, add the entry to both files. If the file doesn't exist yet, create it:
+| 3P/Gateway (DeepSeek via `dsclaude-desktop`) | `~/Library/Application Support/Claude-3p/claude_desktop_config.json` |
+| Standard Anthropic | `~/Library/Application Support/Claude/claude_desktop_config.json` |
 
 ```json
 {
   "mcpServers": {
     "dsvision": {
-      "command": "/Users/niehu/github/dsclaude/dsvision-mcp"
+      "command": "/absolute/path/dsclaude/dsvision-mcp"
     }
   }
 }
 ```
 
-> Replace `/Users/niehu/github/dsclaude/dsvision-mcp` with the path you got from step 3 above.
+Restart Claude Desktop. The `analyze_image` tool appears automatically.
 
-Restart Claude Desktop. The `analyze_image` tool will appear to the agent automatically.
-
-**Verify it's working**
-
-Open Claude Desktop → ask the agent to "analyze the most recent image in cache." If `dsvision` is connected you'll see it in the **Connectors** panel (Cowork) or as a tool call in the message stream (Code mode). If the tool doesn't appear, check **Claude → Settings → Developer → MCP Logs** for startup errors.
-
-**Troubleshooting**
-
-| Symptom | Likely cause | Fix |
-|---------|-------------|-----|
-| Tool doesn't appear | Wrong config file | Double-check which mode you're in and use the matching path from the table above |
-| Tool doesn't appear | Invalid JSON | Validate with `python3 -m json.tool <config-file>` |
-| Tool appears but errors | `DASHSCOPE_API_KEY` not set | The server reads env + ~/.zshrc. Make sure the key is exported in ~/.zshrc and restart Claude Desktop |
-| `ModuleNotFoundError: fastmcp` | Wrong Python | Use `pip3` not `pip`; Claude Desktop runs the system Python 3 |
-| Image not found | Path is relative | Always pass an absolute path, or leave empty for auto-detect |
-| Image not found (Windows Cowork) | Inline images not cached on Windows | Windows Cowork (3P Gateway) does not cache pasted/dragged images to `~/.claude/image-cache/`. Auto-detect won't work — save the image to disk first and pass the full path: `analyze_image(image_path="C:\Users\...\screenshot.png")` |
-
-**Usage from the agent's perspective**
+### Usage
 
 ```
-analyze_image()                     # auto: latest image in ~/.claude/image-cache/
-analyze_image(image_path="/abs/path/to/foo.png")
-analyze_image(focus="What error is shown?")    # custom prompt
+analyze_image()                           # auto: latest cached image
+analyze_image(image_path="/abs/path/foo.png")
+analyze_image(focus="What error is shown?")
 ```
 
-**In action — both surfaces of Claude Desktop 3P, running on DeepSeek:**
+### Troubleshooting
 
-*Cowork mode* (task agent — `dsvision` visible in the Connectors panel):
+| Symptom | Check |
+|---------|-------|
+| Tool doesn't appear | Wrong config file path / invalid JSON (validate with `python3 -m json.tool`) |
+| Tool errors | `DASHSCOPE_API_KEY` not set |
+| `ModuleNotFoundError` | Use `pip3` not `pip` |
+| Image not found | Pass absolute path, or check `~/.claude/image-cache/` exists |
 
-<p align="center">
-  <img src="docs/images/dsvision-mcp-cowork-demo.png" alt="Cowork 3P agent calling analyze_image MCP tool — dsvision visible in the right-side Connectors panel" width="800">
-</p>
-
-*Claude Code in Desktop* (Code mode — `Used analyze image` tool call inline):
-
-<p align="center">
-  <img src="docs/images/dsvision-mcp-claudecode-desktop-demo.png" alt="Claude Code in Desktop running on DeepSeek, calling the analyze_image MCP tool" width="800">
-</p>
-
-In both cases the user attached an image and said "explain the image". DeepSeek agent invoked `analyze_image`, MCP fetched the cached image from `~/.claude/image-cache/`, sent it to Qwen3.6-Flash, and returned an accurate description back into the conversation — including details Qwen read off the image like the model name `deepseek-v4-pro[1m]` and the working directory.
-
-**When to pick which** (tldr):
+### Skill vs MCP: which to use
 
 | Scenario | Use |
-|---|---|
-| Claude Code (CLI), explicit paths | `skills/deepseek-vision` (zero deps, simpler) |
-| Cowork / Claude Desktop with inline images | `dsvision-mcp` (only thing that works) |
-| Cowork with explicit path + not minding sandbox tweaks | either |
+|----------|-----|
+| Claude Code (CLI), explicit paths | `skills/deepseek-vision` (zero deps) |
+| Cowork / Desktop with inline images | `dsvision-mcp` (only option that works) |
+| Cowork with explicit paths, sandbox tweaks OK | either |
 
-> Why a skill instead of an MCP server: zero new dependencies (just `bash` + `curl` + `jq`), no daemon process, single markdown + bash file you can read in 2 minutes.
+---
 
-## License
+## Community
 
-MIT
+Join us for help, Q&A, and updates:
+
+- **Discord:** https://discord.gg/79JF5Atuk
+- **WeChat:** scan the QR code below
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/agents365ai_wechat_1.png" width="200" alt="WeChat Community Group">
+</p>
 
 ## Support
 
@@ -280,32 +201,17 @@ If these scripts save you time, consider supporting the author:
 
 <table>
   <tr>
-    <td align="center">
-      <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/wechat-pay.png" width="180" alt="WeChat Pay">
-      <br>
-      <b>WeChat Pay</b>
-    </td>
-    <td align="center">
-      <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/alipay.png" width="180" alt="Alipay">
-      <br>
-      <b>Alipay</b>
-    </td>
-    <td align="center">
-      <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/buymeacoffee.png" width="180" alt="Buy Me a Coffee">
-      <br>
-      <b>Buy Me a Coffee</b>
-    </td>
-    <td align="center">
-      <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/awarding/award.gif" width="180" alt="Give a Reward">
-      <br>
-      <b>Give a Reward</b>
-    </td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/wechat-pay.png" width="150" alt="WeChat Pay"><br><b>WeChat Pay</b></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/alipay.png" width="150" alt="Alipay"><br><b>Alipay</b></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/buymeacoffee.png" width="150" alt="Buy Me a Coffee"><br><b>Buy Me a Coffee</b></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/awarding/award.gif" width="150" alt="Give a Reward"><br><b>Give a Reward</b></td>
   </tr>
 </table>
 
 ## Author
 
-**Agents365-ai**
+**Agents365-ai** · [Bilibili](https://space.bilibili.com/441831884) · [GitHub](https://github.com/Agents365-ai)
 
-- Bilibili: https://space.bilibili.com/441831884
-- GitHub: https://github.com/Agents365-ai
+## License
+
+MIT

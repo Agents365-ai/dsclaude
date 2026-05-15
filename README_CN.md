@@ -1,13 +1,14 @@
-# dsclaude — 面向其他模型后端的 Claude Code & Claude Desktop 启动器
+# dsclaude — 面向非 Anthropic 后端的启动器工具集
 
 [English](README.md)
 
-一套小巧的 Shell 脚本，让 [Claude Code](https://claude.ai/code) 和 Claude Desktop 指向非 Anthropic 的模型后端。
+让 [Claude Code](https://claude.ai/code) 和 Claude Desktop 接入 DeepSeek、小米 MiMo 等第三方模型后端的小工具集。
 
 **作者：** [Agents365-ai](https://github.com/Agents365-ai) · [Bilibili](https://space.bilibili.com/441831884)
 
-## 脚本列表
+---
 
+## 工具一览
 | 脚本 | Agent | 平台 | 后端 | 模型 |
 |------|-------|------|------|------|
 | **[dsclaude](dsclaude)** | Claude Code (CLI) | macOS / Linux | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro[1m]`（默认，统一推理）· `deepseek-v4-flash[1m]`（快速 / haiku 档位） |
@@ -17,262 +18,190 @@
 | **[skills/deepseek-vision](skills/deepseek-vision/)** | skill（任何加载 SKILL.md 的 agent） | macOS / Linux | DashScope（OpenAI/Anthropic 兼容） | `qwen3.6-flash`（默认视觉模型） |
 | **[dsvision-mcp](dsvision-mcp)** | MCP server（Claude Desktop / Cowork / 任何 MCP 客户端） | macOS / Linux | DashScope | `qwen3.6-flash`（默认视觉模型） |
 
-`dsclaude` 会在 Claude Code 的 `/model` 选择器中暴露备选模型，支持会话中热切换；同时设置 `ANTHROPIC_DEFAULT_HAIKU_MODEL`，让后台/轻量任务走快模型；并支持可选的环境变量覆盖上下文窗口和输出 token 上限。
+| 工具 | 作用 | 平台 | 后端 |
+|------|------|------|------|
+| **[dsclaude](dsclaude)** | Claude Code CLI 启动器 | macOS / Linux | DeepSeek |
+| **[mmclaude](mmclaude)** | Claude Code CLI 启动器 | macOS / Linux | 小米 MiMo |
+| **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop GUI 配置器 | macOS | DeepSeek |
+| **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop GUI 配置器 | Windows | DeepSeek |
+| **[skills/deepseek-vision](skills/deepseek-vision/)** | 视觉识别 skill（零依赖） | macOS / Linux | DashScope Qwen |
+| **[dsvision-mcp](dsvision-mcp)** | 视觉识别 MCP 服务 | macOS / Linux | DashScope Qwen |
 
-`dsclaude-desktop` 是 Claude Desktop **内置** "Configure Third-Party Inference" 功能（Developer 菜单）的一键配置工具。它把对话框需要你手填的那份 JSON 配置直接写好（已为 DeepSeek 预填）并重启 App。Anthropic 模式 ↔ Gateway 模式之间的切换由 Claude Desktop 启动选择器原生支持，所以脚本里没有 `--revert`。
+---
 
-## 快速开始
+## macOS 快速开始
 
 ```bash
 git clone https://github.com/Agents365-ai/dsclaude.git
 cd dsclaude
+chmod +x dsclaude
+./dsclaude
 ```
 
-就这样 —— 仓库里的 bash 脚本自带可执行权限，不用 `chmod`。每个工具的具体用法见下面对应小节。
+---
 
-如果想把 `dsclaude`（Claude Code 启动器）变成全局命令：
+## dsclaude — Claude Code 接入 DeepSeek
 
-```bash
-sudo cp dsclaude /usr/local/bin/
-```
-
-其他工具（`dsclaude-desktop`、`skills/deepseek-vision/analyze-image`）会引用自己的路径或目录，所以留在 repo 里跑就行。
-
-### dsclaude
-
-遵循 DeepSeek 官方指南：[Integrate with Coding Agents](https://api-docs.deepseek.com/guides/coding_agents) / [Anthropic API](https://api-docs.deepseek.com/guides/anthropic_api)。
+遵循 [DeepSeek Anthropic API](https://api-docs.deepseek.com/guides/anthropic_api) 指南。
 
 ```bash
-export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # 添加到 ~/.zshrc 或 ~/.bashrc
+export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # 添加到 ~/.zshrc
 
-dsclaude                 # 以 deepseek-v4-pro 启动（默认，完整推理能力）
-dsclaude fast            # 以 deepseek-v4-flash[1m] 启动（更便宜/更快）
-dsclaude long            # 申请 1M 上下文窗口（1,048,576 tokens）
+dsclaude                 # 默认 deepseek-v4-pro（完整推理）
+dsclaude fast            # deepseek-v4-flash（更快更便宜）
+dsclaude long            # 1M 上下文窗口
 dsclaude long fast       # 1M + flash
 ```
 
-脚本会自动按 DeepSeek 官方建议导出全套环境变量：`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`、Opus/Sonnet/Haiku 模型映射、`CLAUDE_CODE_SUBAGENT_MODEL` 以及 `CLAUDE_CODE_EFFORT_LEVEL=max`（可用 `DSCLAUDE_EFFORT` 覆盖）。
+自动设置 DeepSeek 推荐的环境变量（`ANTHROPIC_BASE_URL`、模型映射、`CLAUDE_CODE_EFFORT_LEVEL=max`），并在 `/model` 选择器中暴露备选模型。上下文窗口上限可通过 `DSCLAUDE_MAX_TOKENS` 覆盖，effort 级别通过 `DSCLAUDE_EFFORT` 覆盖。
 
-会话中切换：`/model deepseek-v4-flash[1m]` ↔ `/model deepseek-v4-pro[1m]`。
+> 两个模型都原生支持 1M token，在 Claude Code 中需加 `[1m]` 后缀（如 `deepseek-v4-pro[1m]`），脚本已自动处理。
 
-> **注意：** `deepseek-v4-pro` 和 `deepseek-v4-flash` 均原生支持 1M token 上下文窗口。在 Claude Code 中，两个模型都需要加 `[1m]` 后缀来开启（`deepseek-v4-pro[1m]`、`deepseek-v4-flash[1m]`）。`dsclaude` 已自动完成此设置。
+---
 
-### mmclaude
-
-遵循小米 MiMo 官方 Claude Code 配置指南。仅一个模型 `mimo-v2.5-pro`，无 fast/long 别名。
+## mmclaude — Claude Code 接入小米 MiMo
 
 ```bash
-export MIMO_API_KEY=sk-xxxxxxxxxxxxxxxxxx       # 按量付费（添加到 ~/.zshrc）
+export MIMO_API_KEY=sk-xxxxxxxxxxxxxxxxxx       # 按量付费
 # 或
 export MIMO_API_KEY=tp-xxxxxxxxxxxxxxxxxx       # Token Plan
 
 mmclaude                  # 启动 mimo-v2.5-pro
-mmclaude update           # git pull 拉取最新
+mmclaude update           # git pull 拉取更新
 ```
 
-按 key 前缀自动选择 base URL（`sk-*` → `https://api.xiaomimimo.com/anthropic`，`tp-*` → `https://token-plan-cn.xiaomimimo.com/anthropic`）。Token Plan 订阅者若分配了专属子域，用 `MIMO_BASE_URL=...` 覆盖。脚本把 main / Opus / Sonnet / Haiku 四个模型槽位全部指向 `mimo-v2.5-pro`，并按 MiMo 文档要求 unset `ANTHROPIC_API_KEY`（残留的官方凭证会遮蔽 bearer token）。
+按 key 前缀自动选择 base URL（`sk-*` → 公网，`tp-*` → Token Plan），可用 `MIMO_BASE_URL` 覆盖。所有模型槽位都指向 `mimo-v2.5-pro`，并自动 unset `ANTHROPIC_API_KEY`（避免遮蔽 bearer token）。
 
-### dsclaude-desktop
+---
 
-Claude Desktop **内置**第三方推理（Third-Party Inference）功能的一键配置工具，已为 DeepSeek 预填好。
+## dsclaude-desktop — Claude Desktop GUI 配置器
 
-**这不是 hack 或破解。** Anthropic 在 Claude Desktop 里直接提供了 "Configure Third-Party Inference" 对话框（Developer 菜单），允许你手动把 App 指向任意 Anthropic-compatible 端点。该对话框有 6 个必填字段 + 模型列表。`dsclaude-desktop` 帮你把那个对话框会写的 JSON 配置直接写到磁盘，然后重启 App —— 省下你手点菜单填表的时间。
+一键配置 Claude Desktop **内置**的 Third-Party Inference 功能（Developer 菜单），预填 DeepSeek 参数并重启 App。
 
-#### 前置条件
+### 前置条件
 
-1. **已安装 Claude Desktop**（[claude.ai/download](https://claude.ai/download)）
-2. **已启用 Developer Mode**
-   - 路径：Help → Troubleshooting → Enable Developer Mode
-   - 一次即可。脚本每次运行会自动校验。
-3. **DeepSeek API Key** 在 `$DEEPSEEK_API_KEY` / shell rc 文件里，或运行时弹框输入
+1. 已安装 Claude Desktop（[claude.ai/download](https://claude.ai/download)）
+2. 已启用 Developer Mode（Help → Troubleshooting → Enable Developer Mode，一次即可）
+3. 已设置 `DEEPSEEK_API_KEY` 环境变量
 
-#### 用法
+### 用法
 
 ```bash
-export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # 添加到 ~/.zshrc 或 ~/.bashrc
-
-./dsclaude-desktop      # 配置并重启 Claude Desktop
-./dsclaude-desktop -h   # 帮助
+export DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxx
+./dsclaude-desktop        # 配置并重启
+./dsclaude-desktop -h     # 帮助
 ```
 
-脚本做的事：
-1. 在 `~/Library/Application Support/Claude-3p/configLibrary/` 下生成一个 entry 文件，内容为：你的 DeepSeek key、base URL `https://api.deepseek.com/anthropic`、auth scheme `bearer`、模型列表 `deepseek-v4-pro` + `deepseek-v4-flash`（均启用 1M context）
-2. 把 `_meta.json` 的 `appliedId` 指向这个 entry（你之前通过 GUI 配的其他 entry 不动）
-3. `killall Claude && open -a Claude` 让 App 重新加载配置
+脚本在 `~/Library/Application Support/Claude-3p/configLibrary/` 下生成配置 entry，将其设为 `appliedId`，然后重启 App。原本通过 GUI 添加的其他 entry 不受影响。
 
-#### 模式切换
+### 模式切换
 
-Claude Desktop 启动选择器原生支持模式切换，所以脚本不需要 `--revert`：
+Claude Desktop 启动选择器原生支持 Anthropic ↔ Gateway 切换，无需 `--revert`。在 App 内点头像 → Disconnect，下次启动时选另一个入口即可。
 
-<p align="center">
-  <img src="docs/images/launch-chooser.png" alt="Claude Desktop 启动选择器：Continue with Gateway 或 Sign in to Anthropic" width="600">
-</p>
+> 唯一不可用的功能是经典 **Chat**（依赖 Anthropic 托管服务且不在 inference API 表面）。需要用 Chat 时切回 Anthropic 模式即可。
 
-即使在 Anthropic 登录页也能直接跳回 Gateway：
-
-<p align="center">
-  <img src="docs/images/sign-in-or-gateway.png" alt="登录页底部的 'Or continue with Gateway' 链接" width="600">
-</p>
-
-切换方式：在 Claude Desktop 里点头像 → Disconnect（或登出） → 下次启动时挑另一个入口。
-
-#### 配置成功后的样子
-
-Gateway 模式下 **Cowork** 和 **Code** 都走 DeepSeek。模型选择器里能看到你的（脱敏显示的）DeepSeek 模型：
-
-<p align="center">
-  <img src="docs/images/cowork-3p-gateway.png" alt="Cowork 模式在 Gateway 下跑 DeepSeek" width="700">
-</p>
-
-<p align="center">
-  <img src="docs/images/code-3p-gateway.png" alt="Code 模式在 xxclaude 项目里跑 DeepSeek via Gateway" width="700">
-</p>
-
-> **唯一不可用的功能**：经典 **Chat**（claude.ai 风格对话）。Chat 依赖 Anthropic 托管的服务（memory / projects / artifacts / 联网搜索），这些不在 inference API 表面上，第三方 gateway 拿不到。要用 Chat 就在启动选择器选 Anthropic 模式即可。
-
-#### Windows 版本
-
-`dsclaude-desktop.ps1` 是 PowerShell 端口。Schema 和流程完全相同：
+### Windows 版本
 
 ```powershell
 $env:DEEPSEEK_API_KEY = "sk-xxxxxxxxxxxxxxxxxx"
 pwsh ./dsclaude-desktop.ps1
 ```
 
+配置目录为 `%APPDATA%\Claude-3p\configLibrary\`。> 作者未在 Windows 上实测，如有问题请[提 issue](https://github.com/Agents365-ai/dsclaude/issues)。
+
+---
 前置条件：Claude Desktop 已安装（Store 版或标准安装均可）、有 DeepSeek API Key。**无需手动启用 Developer Mode**——脚本会自动创建 `developer_settings.json`。
 
 配置目录：`%LOCALAPPDATA%\Claude-3p\configLibrary\`（若为 Store/MSIX 安装，脚本还会额外写入沙箱路径 `LocalCache\Roaming\Claude-3p\configLibrary\` 作为后备）。
 
 已在 Windows 11 + Claude Desktop 1.7196（Windows Store, arm64）上实测通过。
 
-### deepseek-vision skill
+## deepseek-vision skill — 视觉识别（零依赖方案）
 
-给任意 agent（尤其是 DeepSeek 这种纯文本模型）补上"看图"能力的 skill。Agent 遇到图片（**本地路径或 URL 都行**）时调 `skills/deepseek-vision/analyze-image`，脚本把图发给 **Qwen3.6-Flash** （DashScope），返回文字描述写回上下文供主模型推理。
+给纯文本模型（如 DeepSeek）补上"看图"能力的 skill。代理遇到图片时调 `analyze-image` 脚本，发给 Qwen3.6-Flash 识别后将描述返回主模型。
 
 ```bash
 export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
-
-# 本地文件：
 ./skills/deepseek-vision/analyze-image /path/to/screenshot.png "图里报的什么错？"
-
-# 或者 http(s) URL —— 直接传递，不下载不编码：
 ./skills/deepseek-vision/analyze-image https://example.com/diagram.png
 ```
 
-任何加载 `SKILL.md` 的 agent 都能用（Claude Code / Cowork 等）。默认模型 `qwen3.6-flash`，要更准换 `DSVISION_MODEL=qwen3.6-plus`，要换厂商改 `DSVISION_BASE_URL=...`（小米 MiMo-VL via 硅基流动也是一个 base URL 的距离）。
+任何加载 `SKILL.md` 的 agent（Claude Code、Cowork 等）都能用它。默认模型 `qwen3.6-flash`，可通过 `DSVISION_MODEL` 和 `DSVISION_BASE_URL` 切换。
 
-健壮性：10MB 图片上限会提前友好报错；curl 60s 超时防挂死；空响应会检测；任何失败 stderr 出错信息 + exit 非零。
+> **限制**：需文件路径或 URL，不支持拖拽/粘贴/「+ → Add files or photos」上传的图片。这类场景请用下方的 **dsvision-mcp**。
 
-> **内联图限制**：这个 skill 需要**文件路径或 URL** —— 用户**拖图、粘贴、或用 Claude Desktop "+ → Add files or photos"** 上传的图它都读不到。这种场景请用下面的 **`dsvision-mcp`**，它跑在 Cowork 沙箱外且能自动找 Claude Code 的 image cache。
+---
 
-**实际效果 — Claude Code (CLI) 跑 `dsclaude` 接 DeepSeek：**
+## dsvision-mcp — 视觉识别（MCP 方案）
 
-<p align="center">
-  <img src="docs/images/deepseek-vision-skill-cli-demo.png" alt="Claude Code CLI 加载 deepseek-vision skill，对粘贴的截图调 analyze-image" width="800">
-</p>
+功能同上，但以 MCP 服务形式运行，绕过 Cowork 沙箱的两个限制：
+1. **网络出口管制** — skill 调 DashScope API 会被沙箱防火墙拦截，MCP 服务跑在沙箱外
+2. **内联图片** — 自动读取 `~/.claude/image-cache/` 中最新缓存，拖拽/粘贴/菜单上传均可正常工作（仅 macOS，Windows Cowork 不缓存内联图）
 
-用户粘了一张截图、说 "explain the image"。Claude Code 自动识别到 skill（`Skill(deepseek-vision) Successfully loaded skill`），用 `~/.claude/image-cache/` 下的缓存路径调 `analyze-image`，返回了对 Claude Code 启动界面的准确描述。
-
-### dsvision-mcp
-
-跟 `deepseek-vision` skill 干的活一样，但能绕过 Cowork 里 skill 撞到的两个限制：
-
-1. **沙箱网络出口管制**。Cowork VM 默认只允许出 `*.anthropic.com` / `*.claude.com`，bash skill 调 `dashscope.aliyuncs.com` 会被防火墙挡。MCP server 是 Claude Desktop 的子进程（**跑在沙箱外**），不受这个限制
-2. **内联图**。Claude Code 把每张拖入/附加/粘贴的图自动缓存到 `~/.claude/image-cache/<session-uuid>/N.png`，宿主机文件系统上。MCP server 调 `analyze_image()` 不传 path 时会自动选最新一张。**拖图、+ 菜单、粘贴的场景这下都能跑通（仅限 macOS。Windows Cowork 不会把内联图缓存到磁盘，请手动保存图片后传绝对路径。）**
-
-**前置条件**
-
-- **Python 3.8+**（macOS 自带 Python 3；`python3 --version` 检查版本）
-- **DASHSCOPE_API_KEY** — [前往 DashScope 获取](https://dashscope.console.aliyun.com/apiKey)（需要阿里云账号）
-
-**安装**
+### 安装
 
 ```bash
-# 1. 安装 Python 依赖
 pip3 install fastmcp requests
-
-# 2. 设置 API Key（加到 ~/.zshrc 中以便重启后仍生效）
-export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
-
-# 3. 获取 dsvision-mcp 的绝对路径
-cd /path/to/dsclaude && pwd    # 例如 /Users/niehu/github/dsclaude
+export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # 建议加到 ~/.zshrc
+cd /path/to/dsclaude && pwd    # 记下绝对路径
 ```
 
-然后添加到 Claude Desktop 的 MCP 配置文件中。**根据当前使用的模式选择对应的文件：**
+然后根据当前模式，在对应的配置文件中添加 MCP 服务：
 
 | 模式 | 配置文件 |
 |------|----------|
-| 3P / Gateway（通过 `dsclaude-desktop` 使用 DeepSeek） | `~/Library/Application Support/Claude-3p/claude_desktop_config.json` |
+| 3P/Gateway（通过 `dsclaude-desktop` 使用 DeepSeek） | `~/Library/Application Support/Claude-3p/claude_desktop_config.json` |
 | 标准 Anthropic 模式 | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-
-如果两种模式都用，两个文件都要加。如果文件尚不存在，直接创建：
 
 ```json
 {
   "mcpServers": {
     "dsvision": {
-      "command": "/Users/niehu/github/dsclaude/dsvision-mcp"
+      "command": "/绝对/路径/dsclaude/dsvision-mcp"
     }
   }
 }
 ```
 
-> 把 `/Users/niehu/github/dsclaude/dsvision-mcp` 替换为上面第 3 步得到的实际路径。
+重启 Claude Desktop 后，`analyze_image` 工具自动出现。
 
-重启 Claude Desktop。`analyze_image` 工具会自动出现在 agent 的工具列表中。
-
-**验证安装**
-
-打开 Claude Desktop → 让 agent "分析缓存中最新的图片"。如果 `dsvision` 已连接，在 **Connectors** 面板（Cowork）或消息流中的工具调用（Code 模式）里可以看到。如果工具没出现，检查 **Claude → Settings → Developer → MCP Logs** 中的启动错误日志。
-
-**常见问题排查**
-
-| 现象 | 可能原因 | 解决方法 |
-|------|----------|----------|
-| 工具不显示 | 配置文件选错 | 确认当前使用的模式，对照上表使用对应的文件路径 |
-| 工具不显示 | JSON 格式错误 | 用 `python3 -m json.tool <配置文件>` 校验 |
-| 工具出现但报错 | `DASHSCOPE_API_KEY` 未设置 | 服务器读取 env + ~/.zshrc，确保 key 已 export 到 ~/.zshrc 并重启 Claude Desktop |
-| `ModuleNotFoundError: fastmcp` | Python 版本不对 | 用 `pip3` 而非 `pip`；Claude Desktop 使用系统 Python 3 |
-| 找不到图片 | 路径是相对路径 | 传绝对路径，或留空启用自动检测 |
-| 找不到图片（Windows Cowork） | 内联图在 Windows 上不会缓存 | Windows Cowork（3P Gateway）不会把粘贴/拖拽的图片缓存到 `~/.claude/image-cache/`。自动检测不可用——先把图片保存到磁盘，传完整路径：`analyze_image(image_path="C:\Users\...\screenshot.png")` |
-
-**Agent 视角的用法**
+### 用法
 
 ```
-analyze_image()                          # 自动：~/.claude/image-cache/ 里最新一张
+analyze_image()                           # 自动检测最新缓存图片
 analyze_image(image_path="/绝对/路径/foo.png")
-analyze_image(focus="图里报的什么错？")    # 自定义 prompt
+analyze_image(focus="图里报的什么错？")     # 自定义 prompt
 ```
 
-**实际效果 — Claude Desktop 3P 的两个产品面，都跑在 DeepSeek 上：**
+### 常见问题
 
-*Cowork 模式*（任务 agent，右侧 Connectors 能看到 `dsvision`）：
+| 现象 | 排查方向 |
+|------|----------|
+| 工具不显示 | 配置文件路径选错 / JSON 格式错误（用 `python3 -m json.tool` 校验） |
+| 工具报错 | `DASHSCOPE_API_KEY` 未设置 |
+| `ModuleNotFoundError` | 用 `pip3` 而非 `pip` |
+| 找不到图片 | 传绝对路径，或检查 `~/.claude/image-cache/` 是否存在 |
+
+### skill vs MCP 怎么选
+
+| 场景 | 推荐 |
+|------|------|
+| Claude Code (CLI)，给明确路径 | `skills/deepseek-vision`（零依赖） |
+| Cowork / Desktop，拖拽/粘贴内联图 | `dsvision-mcp`（唯一能用的） |
+| Cowork，给明确路径，不介意沙箱限制 | 两者均可 |
+
+---
+
+## 社区
+
+加入交流群获取帮助、提问和最新动态：
+
+- **Discord:** https://discord.gg/79JF5Atuk
+- **微信:** 扫描下方二维码
 
 <p align="center">
-  <img src="docs/images/dsvision-mcp-cowork-demo.png" alt="Cowork 3P agent 调用 analyze_image MCP 工具，右侧 Connectors 面板能看到 dsvision" width="800">
+  <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/agents365ai_wechat_1.png" width="200" alt="微信交流群">
 </p>
-
-*Claude Code in Desktop*（Code 模式，"Used analyze image" 工具调用直接展示在消息里）：
-
-<p align="center">
-  <img src="docs/images/dsvision-mcp-claudecode-desktop-demo.png" alt="Claude Code in Desktop 跑在 DeepSeek 上调用 analyze_image MCP 工具" width="800">
-</p>
-
-两种场景都是用户附了一张图、说 "explain the image"。DeepSeek agent 触发 `analyze_image`，MCP 从 `~/.claude/image-cache/` 取缓存图发给 Qwen3.6-Flash，返回准确描述写回上下文 —— 包括 Qwen 从图里读出的模型名 `deepseek-v4-pro[1m]`、工作目录等细节。
-
-**何时用哪个**（tldr）：
-
-| 场景 | 用哪个 |
-|---|---|
-| Claude Code (CLI)，给明确路径 | `skills/deepseek-vision`（零依赖，简单） |
-| Cowork / Claude Desktop，内联图 | `dsvision-mcp`（**唯一能用的**） |
-| Cowork 给明确路径，且不介意 patch 沙箱 | 都行 |
-
-> 为什么是 skill 不是 MCP server：零新依赖（只用 `bash` + `curl` + `jq`）、无后台进程、单文件 2 分钟读完。
-
-## 开源协议
-
-MIT
 
 ## 赞赏支持
 
@@ -280,32 +209,17 @@ MIT
 
 <table>
   <tr>
-    <td align="center">
-      <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/wechat-pay.png" width="180" alt="微信支付">
-      <br>
-      <b>微信支付</b>
-    </td>
-    <td align="center">
-      <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/alipay.png" width="180" alt="支付宝">
-      <br>
-      <b>支付宝</b>
-    </td>
-    <td align="center">
-      <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/buymeacoffee.png" width="180" alt="Buy Me a Coffee">
-      <br>
-      <b>Buy Me a Coffee</b>
-    </td>
-    <td align="center">
-      <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/awarding/award.gif" width="180" alt="打赏">
-      <br>
-      <b>打赏鼓励</b>
-    </td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/wechat-pay.png" width="150" alt="微信支付"><br><b>微信支付</b></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/alipay.png" width="150" alt="支付宝"><br><b>支付宝</b></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/buymeacoffee.png" width="150" alt="Buy Me a Coffee"><br><b>Buy Me a Coffee</b></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/awarding/award.gif" width="150" alt="打赏"><br><b>打赏鼓励</b></td>
   </tr>
 </table>
 
 ## 作者
 
-**Agents365-ai**
+**Agents365-ai** · [Bilibili](https://space.bilibili.com/441831884) · [GitHub](https://github.com/Agents365-ai)
 
-- 哔哩哔哩：https://space.bilibili.com/441831884
-- GitHub：https://github.com/Agents365-ai
+## 开源协议
+
+MIT
