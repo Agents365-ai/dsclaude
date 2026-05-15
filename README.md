@@ -13,7 +13,7 @@ A small collection of shell scripts that point [Claude Code](https://claude.ai/c
 | **[dsclaude](dsclaude)** | Claude Code (CLI) | macOS / Linux | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro[1m]` (default, unified reasoning) · `deepseek-v4-flash[1m]` (fast / haiku tier) |
 | **[mmclaude](mmclaude)** | Claude Code (CLI) | macOS / Linux | Xiaomi MiMo (Anthropic-compatible endpoint) | `mimo-v2.5-pro` |
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (GUI) | macOS | DeepSeek API (Anthropic-compatible endpoint) | `deepseek-v4-pro` · `deepseek-v4-flash` (1M context on both) |
-| **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows (untested) | DeepSeek API (Anthropic-compatible endpoint) | same as above |
+| **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows (Store & standard install) | DeepSeek API (Anthropic-compatible endpoint) | same as above |
 | **[skills/deepseek-vision](skills/deepseek-vision/)** | skill (any agent that loads SKILL.md) | macOS / Linux | DashScope (Anthropic / OpenAI-compatible) | `qwen3.6-flash` (default vision) |
 | **[dsvision-mcp](dsvision-mcp)** | MCP server (Claude Desktop / Cowork / any MCP client) | macOS / Linux | DashScope | `qwen3.6-flash` (default vision) |
 
@@ -139,9 +139,11 @@ $env:DEEPSEEK_API_KEY = "sk-xxxxxxxxxxxxxxxxxx"
 pwsh ./dsclaude-desktop.ps1
 ```
 
-Prerequisites mirror the macOS version: Claude Desktop installed, Developer Mode enabled, DeepSeek API key. The script writes to `%APPDATA%\Claude-3p\configLibrary\` instead of `~/Library/Application Support/Claude-3p/configLibrary/`.
+Prerequisites: Claude Desktop installed (Store or standard), DeepSeek API key. Unlike macOS, Developer Mode is **auto-enabled** by the script — no manual GUI toggle needed.
 
-> **Untested by the maintainer.** The schema and gotchas were discovered on macOS; Anthropic ships the same Electron app on Windows so they should hold, but please [open an issue](https://github.com/Agents365-ai/dsclaude/issues) if anything misbehaves.
+Config path: `%LOCALAPPDATA%\Claude-3p\configLibrary\` (for Store/MSIX installs, the script also writes to the sandboxed package path as a fallback).
+
+Tested on Windows 11 with Claude Desktop 1.7196 (Windows Store, arm64).
 
 ### deepseek-vision skill
 

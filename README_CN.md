@@ -13,7 +13,7 @@
 | **[dsclaude](dsclaude)** | Claude Code (CLI) | macOS / Linux | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro[1m]`（默认，统一推理）· `deepseek-v4-flash[1m]`（快速 / haiku 档位） |
 | **[mmclaude](mmclaude)** | Claude Code (CLI) | macOS / Linux | 小米 MiMo（Anthropic 兼容端点） | `mimo-v2.5-pro` |
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (GUI) | macOS | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro` · `deepseek-v4-flash`（均启用 1M 上下文） |
-| **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows（未实测） | DeepSeek API（Anthropic 兼容端点） | 同上 |
+| **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows（Store 版 & 标准安装） | DeepSeek API（Anthropic 兼容端点） | 同上 |
 | **[skills/deepseek-vision](skills/deepseek-vision/)** | skill（任何加载 SKILL.md 的 agent） | macOS / Linux | DashScope（OpenAI/Anthropic 兼容） | `qwen3.6-flash`（默认视觉模型） |
 | **[dsvision-mcp](dsvision-mcp)** | MCP server（Claude Desktop / Cowork / 任何 MCP 客户端） | macOS / Linux | DashScope | `qwen3.6-flash`（默认视觉模型） |
 
@@ -139,9 +139,11 @@ $env:DEEPSEEK_API_KEY = "sk-xxxxxxxxxxxxxxxxxx"
 pwsh ./dsclaude-desktop.ps1
 ```
 
-前置条件与 macOS 版相同：Claude Desktop 已安装、Developer Mode 已启用、有 DeepSeek API Key。配置目录是 `%APPDATA%\Claude-3p\configLibrary\`（而非 macOS 的 `~/Library/Application Support/Claude-3p/configLibrary/`）。
+前置条件：Claude Desktop 已安装（Store 版或标准安装均可）、有 DeepSeek API Key。**无需手动启用 Developer Mode**——脚本会自动创建 `developer_settings.json`。
 
-> **作者未在 Windows 上实测过。** Schema 和那些坑（末尾换行、UUID 小写、Developer Mode 门控）都是 macOS 上发现的；Anthropic 在 Windows 上跑的是同一份 Electron App，理论上一致，但请在 [issue 区](https://github.com/Agents365-ai/dsclaude/issues) 反馈任何异常。
+配置目录：`%LOCALAPPDATA%\Claude-3p\configLibrary\`（若为 Store/MSIX 安装，脚本还会额外写入沙箱路径 `LocalCache\Roaming\Claude-3p\configLibrary\` 作为后备）。
+
+已在 Windows 11 + Claude Desktop 1.7196（Windows Store, arm64）上实测通过。
 
 ### deepseek-vision skill
 
