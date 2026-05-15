@@ -11,21 +11,36 @@
 #
 # Reads DEEPSEEK_API_KEY from the process env first, then User/Machine env vars.
 #
-# Quick start:
-#   pwsh ./dsclaude.ps1
+# Quick start (from the dsclaude directory):
+#   pwsh -File .\dsclaude.ps1
+#
+# Three invocation rules that matter on Windows:
+#   1. Use `pwsh`, not `powershell`. PowerShell 5.1 ships with Windows but its
+#      legacy console host breaks Ink-based CLIs (claude exits silently after
+#      the first keystroke). This script refuses to run on PS < 7.
+#      Install once:  winget install Microsoft.PowerShell
+#   2. Use `-File`, not `-Command` / `&`. `-File` runs the script in a clean
+#      arg-parsing mode; `-Command` re-tokenizes the line and mangles paths.
+#   3. Allow local scripts to run (one-time, current user only):
+#        Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+#
+# Launching from a shortcut, Run dialog, or another shell:
+#   Start-Process pwsh -ArgumentList '-NoExit', '-File',
+#     'C:\Users\<you>\Desktop\dsclaude\dsclaude.ps1'
+# (`-NoExit` keeps the window open if the launching context doesn't have one.)
 #
 # Optional — make it globally available (one-time, from this dir):
 #   $bin = "$env:USERPROFILE\bin"; New-Item -ItemType Directory -Force $bin | Out-Null
-#   Copy-Item ./dsclaude.ps1 $bin\dsclaude.ps1
-#   # then add $bin to PATH and run:  pwsh dsclaude.ps1
+#   Copy-Item .\dsclaude.ps1 $bin\dsclaude.ps1
+#   # then add $bin to PATH and run:  pwsh -File dsclaude.ps1
 #
 # Use:
-#   pwsh ./dsclaude.ps1                  # deepseek-v4-pro  (default, full reasoning)
-#   pwsh ./dsclaude.ps1 fast             # deepseek-v4-flash[1m] (cheaper / faster)
-#   pwsh ./dsclaude.ps1 long             # request a 1M context window
-#   pwsh ./dsclaude.ps1 long fast        # 1M + flash
-#   pwsh ./dsclaude.ps1 update           # git pull latest from the dsclaude repo
-#   pwsh ./dsclaude.ps1 --help           # any remaining flag is forwarded to claude
+#   pwsh -File ./dsclaude.ps1                  # deepseek-v4-pro  (default, full reasoning)
+#   pwsh -File ./dsclaude.ps1 fast             # deepseek-v4-flash[1m] (cheaper / faster)
+#   pwsh -File ./dsclaude.ps1 long             # request a 1M context window
+#   pwsh -File ./dsclaude.ps1 long fast        # 1M + flash
+#   pwsh -File ./dsclaude.ps1 update           # git pull latest from the dsclaude repo
+#   pwsh -File ./dsclaude.ps1 --help           # any remaining flag is forwarded to claude
 #
 # Backward-compat aliases (v4-pro is unified thinking/non-thinking, so these all
 # resolve to deepseek-v4-pro today):
@@ -40,8 +55,8 @@
 #   /model deepseek-v4-flash[1m]         # switch to the fast/haiku tier
 #   /model deepseek-v4-pro[1m]           # switch back to pro
 #
-# Requires: PowerShell 5.1+ (Windows 10+ ships this), Claude Code CLI on PATH
-# (`npm i -g @anthropic-ai/claude-code`), DeepSeek API key.
+# Requires: PowerShell 7+ (`winget install Microsoft.PowerShell`), Claude Code
+# CLI on PATH (`npm i -g @anthropic-ai/claude-code`), DeepSeek API key.
 
 [CmdletBinding()]
 param(
@@ -50,6 +65,28 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# ---- PowerShell version guard ----------------------------------------------
+# Windows PowerShell 5.1 ships with a legacy console host whose raw-mode TTY
+# breaks Ink (the React-for-CLI framework Claude Code uses): the welcome
+# screen renders, then the first keystroke causes claude to exit silently.
+# PowerShell 7+ uses ConPTY and works correctly. Refuse early with a clear
+# message rather than letting the user debug the silent-exit symptom.
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+    Write-Error @"
+dsclaude.ps1: PowerShell 7+ required (you're on $($PSVersionTable.PSVersion)).
+
+Windows PowerShell 5.1 cannot host claude's interactive UI — the first
+keystroke causes claude to exit. Install PowerShell 7 once:
+
+  winget install Microsoft.PowerShell
+
+Then re-run with:
+
+  pwsh -File .\dsclaude.ps1
+"@
+    exit 1
+}
 
 # ---- Self-update -----------------------------------------------------------
 
@@ -69,7 +106,7 @@ function Invoke-DsclaudeUpdate {
     if (-not $repo) {
         Write-Error @'
 dsclaude: cannot find the dsclaude repo for self-update.
-  Set $env:DSCLAUDE_HOME = 'C:\path\to\dsclaude'  or  cd into the repo and run  pwsh ./dsclaude.ps1 update
+  Set $env:DSCLAUDE_HOME = 'C:\path\to\dsclaude'  or  cd into the repo and run  pwsh -File ./dsclaude.ps1 update
 '@
         exit 1
     }
