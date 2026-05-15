@@ -12,6 +12,7 @@ A collection of launchers and configurators that point [Claude Code](https://cla
 
 | Tool | What it does | Platform | Backend |
 |------|-------------|----------|---------|
+|------|-------------|----------|---------|
 | **[dsclaude](dsclaude)** | Claude Code CLI launcher | macOS / Linux | DeepSeek |
 | **[mmclaude](mmclaude)** | Claude Code CLI launcher | macOS / Linux | Xiaomi MiMo |
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop GUI configurator | macOS | DeepSeek |
@@ -106,6 +107,11 @@ pwsh ./dsclaude-desktop.ps1
 Writes to `%APPDATA%\Claude-3p\configLibrary\`. > Untested by the maintainer — please [open an issue](https://github.com/Agents365-ai/dsclaude/issues) if anything misbehaves.
 
 ---
+Prerequisites: Claude Desktop installed (Store or standard), DeepSeek API key. Unlike macOS, Developer Mode is **auto-enabled** by the script — no manual GUI toggle needed.
+
+Config path: `%LOCALAPPDATA%\Claude-3p\configLibrary\` (for Store/MSIX installs, the script also writes to the sandboxed package path as a fallback).
+
+Tested on Windows 11 with Claude Desktop 1.7196 (Windows Store, arm64).
 
 ## deepseek-vision skill — Vision (zero-dependency)
 

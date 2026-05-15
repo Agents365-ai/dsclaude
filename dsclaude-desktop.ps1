@@ -31,8 +31,11 @@ $ErrorActionPreference = 'Stop'
 
 # ---- Constants -------------------------------------------------------------
 
-$ConfigDir  = Join-Path $env:APPDATA 'Claude-3p\configLibrary'
+$ConfigDir  = Join-Path $env:LOCALAPPDATA 'Claude-3p\configLibrary'
 $Meta       = Join-Path $ConfigDir '_meta.json'
+$StoreDir   = if (Get-ChildItem "$env:LOCALAPPDATA\Packages\Claude_*" -ErrorAction SilentlyContinue) {
+                  Join-Path (Resolve-Path "$env:LOCALAPPDATA\Packages\Claude_*") 'LocalCache\Roaming\Claude-3p\configLibrary'
+              } else { $null }
 $EntryName  = 'dsclaude-desktop'
 $BaseUrl    = 'https://api.deepseek.com/anthropic'
 $AuthScheme = 'bearer'
@@ -119,23 +122,20 @@ your custom install location. Looked in:
     }
 
     $devSettings = Join-Path $env:APPDATA 'Claude\developer_settings.json'
-    if (-not (Test-Path $devSettings)) {
-        Write-Error @'
-dsclaude-desktop.ps1: Developer Mode not enabled in Claude Desktop.
-
-Claude Desktop's third-party inference feature is gated behind Developer Mode.
-Enable it once in the GUI before running this script:
-
-  1. Open Claude Desktop
-  2. Help -> Troubleshooting -> Enable Developer Mode
-  3. Re-run this script
-'@
-        exit 1
+    $devDir = Split-Path $devSettings -Parent
+    $needsEnable = $false
+    if (Test-Path $devSettings) {
+        $dev = Get-Content $devSettings -Raw | ConvertFrom-Json
+        if (-not $dev.allowDevTools) { $needsEnable = $true }
+    } else {
+        $needsEnable = $true
     }
-    $dev = Get-Content $devSettings -Raw | ConvertFrom-Json
-    if (-not $dev.allowDevTools) {
-        Write-Error 'dsclaude-desktop.ps1: developer_settings.json has allowDevTools=false. Toggle Developer Mode in Help -> Troubleshooting.'
-        exit 1
+    if ($needsEnable) {
+        Write-Host 'dsclaude-desktop.ps1: Enabling Developer Mode for Claude Desktop...'
+        if (-not (Test-Path $devDir)) { New-Item -ItemType Directory -Path $devDir -Force | Out-Null }
+        $devContent = '{ "allowDevTools": true }'
+        [System.IO.File]::WriteAllText($devSettings, $devContent, [System.Text.UTF8Encoding]::new($false))
+        Write-Host 'dsclaude-desktop.ps1: Developer Mode enabled.'
     }
 }
 
@@ -181,14 +181,46 @@ function Write-JsonAtomic {
     Move-Item -Path $tmp -Destination $Path -Force
 }
 
+# Ensure _meta.json has an entry named $EntryName (creating or reusing its
+# uuid) and set appliedId to that uuid. Returns the uuid.
+function Update-MetaEntry {
+    $dirs = @($script:ConfigDir) + @(if ($script:StoreDir) { $script:StoreDir } else { @() })
+    foreach ($d in $dirs) {
+        if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+    }
+
+    $existingUuid = $null
+    $metaPath = Join-Path $dirs[0] '_meta.json'
+    if (Test-Path $metaPath) {
+        $existing = Get-Content $metaPath -Raw | ConvertFrom-Json
+        $existingUuid = (
+            $existing.entries | Where-Object { $_.name -eq $script:EntryName } |
+            Select-Object -First 1
+        ).id
+    }
+
+    $uuid = if ($existingUuid) { $existingUuid }
+            else { [guid]::NewGuid().ToString().ToLower() }
+
+    $entries = @()
+    if (Test-Path $metaPath) {
+        $existing = Get-Content $metaPath -Raw | ConvertFrom-Json
+        $entries = @($existing.entries | Where-Object { $_.name -ne $script:EntryName })
+    }
+    $entries += [pscustomobject]@{ id = $uuid; name = $script:EntryName }
+
+    $newMeta = [ordered]@{
+        appliedId = $uuid
+        entries   = @($entries)
+    }
+    foreach ($d in $dirs) {
+        Write-JsonAtomic -Path (Join-Path $d '_meta.json') -Object $newMeta
+    }
+    return $uuid
+}
+
 function Write-Entry {
     param([string]$Uuid, [string]$ApiKey)
-    # unstableDisableModelVerification skips Claude Desktop 1.7xxx's local model-name
-    # validator (app.asar: koA/FAi/FFA). Without it, names matching its hard-coded
-    # block-list (deepseek/qwen/gemini/...) are rejected before any request leaves
-    # the app. Defined in Claude's own config schema (scopes:["3p"], title:
-    # "Disable model verification"), so it's a sanctioned-but-internal bypass —
-    # the `unstable` prefix means Anthropic reserves the right to rename it.
     $entry = [ordered]@{
         inferenceProvider                 = 'gateway'
         inferenceGatewayBaseUrl           = $BaseUrl
@@ -200,49 +232,18 @@ function Write-Entry {
             [ordered]@{ name = $FastModel; supports1m = $true }
         )
     }
-    Write-JsonAtomic -Path (Join-Path $script:ConfigDir "$Uuid.json") -Object $entry
-}
-
-# Ensure _meta.json has an entry named $EntryName (creating or reusing its
-# uuid) and set appliedId to that uuid. Returns the uuid.
-function Update-MetaEntry {
-    if (-not (Test-Path $script:ConfigDir)) {
-        New-Item -ItemType Directory -Path $script:ConfigDir -Force | Out-Null
+    $dirs = @($script:ConfigDir) + @(if ($script:StoreDir) { $script:StoreDir } else { @() })
+    foreach ($d in $dirs) {
+        Write-JsonAtomic -Path (Join-Path $d "$Uuid.json") -Object $entry
     }
-
-    $existingUuid = $null
-    if (Test-Path $script:Meta) {
-        $existing = Get-Content $script:Meta -Raw | ConvertFrom-Json
-        $existingUuid = (
-            $existing.entries | Where-Object { $_.name -eq $script:EntryName } |
-            Select-Object -First 1
-        ).id
-    }
-
-    # Lowercase to match Claude's GUI-written UUIDs.
-    $uuid = if ($existingUuid) { $existingUuid }
-            else { [guid]::NewGuid().ToString().ToLower() }
-
-    $entries = @()
-    if (Test-Path $script:Meta) {
-        $existing = Get-Content $script:Meta -Raw | ConvertFrom-Json
-        $entries = @($existing.entries | Where-Object { $_.name -ne $script:EntryName })
-    }
-    $entries += [pscustomobject]@{ id = $uuid; name = $script:EntryName }
-
-    $newMeta = [ordered]@{
-        appliedId = $uuid
-        entries   = @($entries)
-    }
-    Write-JsonAtomic -Path $script:Meta -Object $newMeta
-    return $uuid
 }
 
 # ---- Restart ---------------------------------------------------------------
 
 function Restart-Claude {
-    Get-Process -Name 'Claude' -ErrorAction SilentlyContinue |
-        Stop-Process -Force -ErrorAction SilentlyContinue
+    Get-CimInstance Win32_Process -Filter "Name='claude.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -like "*$($script:ClaudeExe)*" } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     Start-Sleep -Seconds 1
     Start-Process -FilePath $script:ClaudeExe
 }
@@ -250,8 +251,8 @@ function Restart-Claude {
 # ---- Main ------------------------------------------------------------------
 
 Test-Preflight
-$apiKey = Resolve-ApiKey
 Confirm-OrAbort -Action "configure Claude Desktop to use DeepSeek ($BaseUrl) and restart it."
+$apiKey = Resolve-ApiKey
 $uuid = Update-MetaEntry
 Write-Entry -Uuid $uuid -ApiKey $apiKey
 Restart-Claude
