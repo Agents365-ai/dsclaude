@@ -137,6 +137,12 @@ write_entry() {
   local entry_path="$CONFIG_DIR/${uuid}.json"
   local tmp="${entry_path}.tmp"
   local content
+  # unstableDisableModelVerification skips Claude Desktop 1.7xxx's local model-name
+  # validator (app.asar: koA/FAi/FFA). Without it, names matching its hard-coded
+  # block-list (deepseek/qwen/gemini/...) are rejected before any request leaves
+  # the app. Defined in Claude's own config schema (scopes:["3p"], title:
+  # "Disable model verification"), so it's a sanctioned-but-internal bypass —
+  # the `unstable` prefix means Anthropic reserves the right to rename it.
   content="$(jq -n \
     --arg baseUrl "$BASE_URL" \
     --arg apiKey  "$DEEPSEEK_KEY" \
@@ -148,6 +154,7 @@ write_entry() {
        inferenceGatewayBaseUrl: $baseUrl,
        inferenceGatewayApiKey: $apiKey,
        inferenceGatewayAuthScheme: $auth,
+       unstableDisableModelVerification: true,
        inferenceModels: [
          {name: $main, supports1m: true},
          {name: $fast, supports1m: true}
@@ -196,11 +203,7 @@ ensure_meta_entry() {
 restart_claude() {
   killall Claude 2>/dev/null || true
   sleep 1
-  # NODE_ENV=production disables the dev-only validator (`Hte` in app.asar) that
-  # rejects non-Anthropic model names and would otherwise refuse "deepseek-v4-pro".
-  # Electron does not set NODE_ENV by default in packaged apps, so the validator
-  # is incorrectly active in production. Forcing it here restores the gateway path.
-  open -a Claude --env NODE_ENV=production
+  open -a Claude
 }
 
 preflight

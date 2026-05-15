@@ -183,12 +183,19 @@ function Write-JsonAtomic {
 
 function Write-Entry {
     param([string]$Uuid, [string]$ApiKey)
+    # unstableDisableModelVerification skips Claude Desktop 1.7xxx's local model-name
+    # validator (app.asar: koA/FAi/FFA). Without it, names matching its hard-coded
+    # block-list (deepseek/qwen/gemini/...) are rejected before any request leaves
+    # the app. Defined in Claude's own config schema (scopes:["3p"], title:
+    # "Disable model verification"), so it's a sanctioned-but-internal bypass —
+    # the `unstable` prefix means Anthropic reserves the right to rename it.
     $entry = [ordered]@{
-        inferenceProvider          = 'gateway'
-        inferenceGatewayBaseUrl    = $BaseUrl
-        inferenceGatewayApiKey     = $ApiKey
-        inferenceGatewayAuthScheme = $AuthScheme
-        inferenceModels            = @(
+        inferenceProvider                 = 'gateway'
+        inferenceGatewayBaseUrl           = $BaseUrl
+        inferenceGatewayApiKey            = $ApiKey
+        inferenceGatewayAuthScheme        = $AuthScheme
+        unstableDisableModelVerification  = $true
+        inferenceModels                   = @(
             [ordered]@{ name = $MainModel; supports1m = $true },
             [ordered]@{ name = $FastModel; supports1m = $true }
         )
