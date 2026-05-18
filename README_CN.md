@@ -4,8 +4,6 @@
 
 让 [Claude Code](https://claude.ai/code) 和 Claude Desktop 接入 DeepSeek、小米 MiMo 等第三方模型后端的小工具集。
 
-**作者：** [Agents365-ai](https://github.com/Agents365-ai) · [Bilibili](https://space.bilibili.com/441831884)
-
 ---
 
 ## 工具一览

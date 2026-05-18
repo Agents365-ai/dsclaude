@@ -4,8 +4,6 @@
 
 A collection of launchers and configurators that point [Claude Code](https://claude.ai/code) and Claude Desktop at third-party model backends (DeepSeek, Xiaomi MiMo, etc.).
 
-**Author:** [Agents365-ai](https://github.com/Agents365-ai) · [Bilibili](https://space.bilibili.com/441831884)
-
 ---
 
 ## Tools
