@@ -1,0 +1,8 @@
+title: dsclaude
+description: Claude Code & Claude Desktop launchers for alternative backends — DeepSeek, Xiaomi MiMo, DashScope vision
+theme: jekyll-theme-cayman
+show_downloads: false
+
+# Only the language switcher lives outside this list; .md files become .html
+include:
+  - zh.md
