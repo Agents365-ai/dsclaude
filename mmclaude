@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# mmclaude — launch Claude Code on Xiaomi MiMo's Anthropic-compatible API.
+#
+# Follows the official MiMo "Claude Code 配置" guide:
+#   - Pay-as-you-go : https://api.xiaomimimo.com/anthropic            (sk-... keys)
+#   - Token Plan    : https://token-plan-cn.xiaomimimo.com/anthropic  (tp-... keys)
+#     (Token Plan subscribers may receive a custom subdomain — override
+#      the base URL via MIMO_BASE_URL.)
+#
+# Reads MIMO_API_KEY from the environment first, then falls back to
+# ~/.zshrc / ~/.bashrc / ~/.bash_profile / ~/.profile if not already exported.
+#
+# Quick start (no install needed):
+#   chmod +x mmclaude
+#   ./mmclaude
+#
+# Optional — make it globally available:
+#   sudo mv mmclaude /usr/local/bin/ && sudo chmod +x /usr/local/bin/mmclaude
+#
+# Use:
+#   mmclaude                  # start on mimo-v2.5-pro (MiMo default)
+#   mmclaude update           # git pull latest from this repo
+#   mmclaude --help           # any remaining flag is forwarded to claude
+#
+# Optional env overrides:
+#   MIMO_MODEL=mimo-v2.5-pro                 # main model
+#   MIMO_BASE_URL=https://.../anthropic      # custom Anthropic-compatible base URL
+#
+set -euo pipefail
+
+mmclaude_update() {
+  local repo=""
+  local self_dir
+  self_dir="$(cd "$(dirname "$0")" && pwd)"
+  if [ -d "$self_dir/.git" ]; then
+    repo="$self_dir"
+  fi
+  if [ -z "$repo" ] && [ -n "${MMCLAUDE_HOME:-}" ]; then
+    repo="$MMCLAUDE_HOME"
+  fi
+  if [ -z "$repo" ] && [ -d "$HOME/github/xxclaude/.git" ]; then
+    repo="$HOME/github/xxclaude"
+  fi
+  if [ -z "$repo" ]; then
+    echo "mmclaude: cannot find the xxclaude repo for self-update." >&2
+    echo "  Set MMCLAUDE_HOME=/path/to/xxclaude  or  cd into the repo and run ./mmclaude update" >&2
+    exit 1
+  fi
+  echo "mmclaude: pulling latest from $repo ..."
+  git -C "$repo" pull && echo "mmclaude: updated." || {
+    echo "mmclaude: git pull failed. Check network or resolve conflicts manually." >&2
+    exit 1
+  }
+  exit 0
+}
+
+extract_key_from_file() {
+  local file="$1"
+  [ -f "$file" ] || return 1
+  grep -E '^[[:space:]]*(export[[:space:]]+)?MIMO_API_KEY=' "$file" \
+    | tail -n1 \
+    | sed -E 's/^[[:space:]]*(export[[:space:]]+)?MIMO_API_KEY=//' \
+    | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'
+}
+
+# Handle the update subcommand before the API-key check so it works key-less.
+if [ $# -gt 0 ] && [ "$1" = "update" ]; then
+  mmclaude_update
+fi
+
+API_KEY="${MIMO_API_KEY:-}"
+if [ -z "$API_KEY" ]; then
+  for f in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+    candidate="$(extract_key_from_file "$f" || true)"
+    if [ -n "${candidate:-}" ]; then
+      API_KEY="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ -z "$API_KEY" ]; then
+  echo "❌ MIMO_API_KEY not found." >&2
+  echo "   Add one line to ~/.zshrc or ~/.bashrc:" >&2
+  echo "     export MIMO_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # pay-as-you-go" >&2
+  echo "     export MIMO_API_KEY=tp-xxxxxxxxxxxxxxxxxx   # Token Plan" >&2
+  exit 1
+fi
+
+# Auto-detect the base URL from the key prefix; MIMO_BASE_URL env always wins.
+BASE_URL="${MIMO_BASE_URL:-}"
+if [ -z "$BASE_URL" ]; then
+  case "$API_KEY" in
+    tp-*) BASE_URL="https://token-plan-cn.xiaomimimo.com/anthropic" ;;
+    *)    BASE_URL="https://api.xiaomimimo.com/anthropic" ;;
+  esac
+fi
+
+MODEL="${MIMO_MODEL:-mimo-v2.5-pro}"
+
+# MiMo docs explicitly warn to clear lingering official Anthropic credentials
+# before launching, otherwise they shadow ANTHROPIC_AUTH_TOKEN.
+unset ANTHROPIC_API_KEY 2>/dev/null || true
+
+export ANTHROPIC_BASE_URL="$BASE_URL"
+export ANTHROPIC_AUTH_TOKEN="$API_KEY"
+export ANTHROPIC_MODEL="$MODEL"
+export ANTHROPIC_DEFAULT_OPUS_MODEL="$MODEL"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="$MODEL"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="$MODEL"
+
+echo "🚀 Claude Code on MiMo  →  $MODEL  ($BASE_URL)"
+exec claude "$@"
