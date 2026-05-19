@@ -3,7 +3,7 @@ title: dsclaude
 description: 面向非 Anthropic 后端的启动器工具集
 ---
 
-[English](./) · **中文** · [GitHub](https://github.com/Agents365-ai/dsclaude)
+[English](./) · **中文** · [GitHub](https://github.com/Agents365-ai/dsclaude) · [Gitee 镜像](https://gitee.com/Agents365-ai/dsclaude)
 
 让 [Claude Code](https://claude.ai/code) 和 Claude Desktop 接入 DeepSeek、小米 MiMo 等第三方模型后端的小工具集。
 
