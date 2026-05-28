@@ -15,6 +15,10 @@
 | **[qwclaude.ps1](qwclaude.ps1)** | Claude Code (CLI) | Windows（PowerShell 7+） | 阿里云百炼 Qwen（Anthropic 兼容端点） | 同上 |
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (GUI) | macOS | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro` · `deepseek-v4-flash`（均启用 1M 上下文） |
 | **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows（Store 版 & 标准安装） | DeepSeek API（Anthropic 兼容端点） | 同上 |
+| **[mmclaude-desktop](mmclaude-desktop)** | Claude Desktop (GUI) | macOS | 小米 MiMo（Anthropic 兼容端点） | `mimo-v2.5-pro` · `mimo-v2.5` |
+| **[mmclaude-desktop.ps1](mmclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows | 小米 MiMo（Anthropic 兼容端点） | 同上 |
+| **[qwclaude-desktop](qwclaude-desktop)** | Claude Desktop (GUI) | macOS | 阿里云百炼 Qwen（Anthropic 兼容端点） | `qwen3.7-max` · `qwen3.6-flash`（按量/Token）· `qwen3.6-plus`（Coding Plan） |
+| **[qwclaude-desktop.ps1](qwclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows | 阿里云百炼 Qwen（Anthropic 兼容端点） | 同上 |
 | **[skills/deepseek-vision](skills/deepseek-vision/)** | skill（任何加载 SKILL.md 的 agent） | macOS / Linux | DashScope（OpenAI/Anthropic 兼容） | `qwen3.6-flash`（默认视觉模型） |
 | **[dsvision-mcp](dsvision-mcp)** | MCP server（Claude Desktop / Cowork / 任何 MCP 客户端） | macOS / Linux | DashScope | `qwen3.6-flash`（默认视觉模型） |
 
@@ -139,6 +143,44 @@ pwsh ./dsclaude-desktop.ps1
 配置目录：`%LOCALAPPDATA%\Claude-3p\configLibrary\`（若为 Store/MSIX 安装，脚本还会额外写入沙箱路径 `LocalCache\Roaming\Claude-3p\configLibrary\` 作为后备）。
 
 已在 Windows 11 + Claude Desktop 1.7196（Windows Store, arm64）上实测通过。
+
+---
+
+## mmclaude-desktop — Claude Desktop 接入小米 MiMo
+
+与 `dsclaude-desktop` 相同的配置器，预填小米 MiMo。读取 `MIMO_API_KEY`，按 key 前缀自动选择 base URL（`tp-*` → Token Plan，否则按量付费；可用 `MIMO_BASE_URL` 覆盖），配置 `mimo-v2.5-pro` + `mimo-v2.5`。
+
+```bash
+export MIMO_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # 或 tp-... 表示 Token Plan
+./mmclaude-desktop        # 配置并重启（macOS）
+./mmclaude-desktop -h     # 帮助
+
+# Windows（PowerShell）
+$env:MIMO_API_KEY = "sk-xxxxxxxxxxxxxxxxxx"
+pwsh ./mmclaude-desktop.ps1
+```
+
+---
+
+## qwclaude-desktop — Claude Desktop 接入阿里云百炼 Qwen
+
+同款配置器，按套餐自动选择 base URL、模型与 key 变量。按量付费（`DASHSCOPE_API_KEY`）与 Token Plan（`DASHSCOPE_TP_API_KEY`）配置 `qwen3.7-max` + `qwen3.6-flash`；Coding Plan（`DASHSCOPE_CP_API_KEY`）配置 `qwen3.6-plus`。
+
+```bash
+export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx       # 按量付费
+export DASHSCOPE_CP_API_KEY=sk-xxxxxxxxxxxxxxxxxx    # Coding Plan
+export DASHSCOPE_TP_API_KEY=sk-xxxxxxxxxxxxxxxxxx    # Token Plan
+
+./qwclaude-desktop            # 按量付费（北京），然后重启
+./qwclaude-desktop intl       # 按量付费，新加坡端点
+./qwclaude-desktop coding     # Coding Plan
+./qwclaude-desktop token      # Token Plan
+
+# Windows（PowerShell）
+pwsh ./qwclaude-desktop.ps1 -Plan coding
+```
+
+> 两个 `.ps1` Windows 版移植自 `dsclaude-desktop.ps1`，**作者未在 Windows 上实测**，如有问题请[提 issue](https://github.com/Agents365-ai/dsclaude/issues)。两个配置器都会设置 `unstableDisableModelVerification`，让 Claude Desktop 接受非 Anthropic 的模型名；与 `dsclaude-desktop` 一样，网关启用期间 Chat 模式不可用。
 
 ## deepseek-vision skill — 视觉识别（零依赖方案）
 
