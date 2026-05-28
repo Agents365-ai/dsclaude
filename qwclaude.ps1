@@ -11,8 +11,11 @@
 #   - Coding Plan   : https://coding.dashscope.aliyuncs.com/apps/anthropic
 #   - Token Plan    : https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic
 #
-# Reads QWEN_API_KEY (or DASHSCOPE_API_KEY) from the process env first, then
-# User/Machine env vars.
+# Reads the plan-specific Bailian API key from the process env first, then
+# User/Machine env vars:
+#   - Pay-as-you-go : DASHSCOPE_API_KEY
+#   - Coding Plan   : DASHSCOPE_CP_API_KEY
+#   - Token Plan    : DASHSCOPE_TP_API_KEY
 #
 # Quick start (from the qwclaude directory):
 #   pwsh -File .\qwclaude.ps1
@@ -126,21 +129,20 @@ qwclaude: cannot find the xxclaude repo for self-update.
 # ---- API key resolution ----------------------------------------------------
 
 function Resolve-ApiKey {
-    if ($env:QWEN_API_KEY) { return $env:QWEN_API_KEY }
-    if ($env:DASHSCOPE_API_KEY) { return $env:DASHSCOPE_API_KEY }
-    foreach ($name in 'QWEN_API_KEY', 'DASHSCOPE_API_KEY') {
-        foreach ($scope in 'User', 'Machine') {
-            $v = [Environment]::GetEnvironmentVariable($name, $scope)
-            if ($v) { return $v }
-        }
+    param([string]$Name, [string]$PlanLabel)
+    $v = [Environment]::GetEnvironmentVariable($Name, 'Process')
+    if ($v) { return $v }
+    foreach ($scope in 'User', 'Machine') {
+        $v = [Environment]::GetEnvironmentVariable($Name, $scope)
+        if ($v) { return $v }
     }
-    Write-Error @'
-QWEN_API_KEY (or DASHSCOPE_API_KEY) not found.
+    Write-Error @"
+$Name not found (needed for Bailian $PlanLabel).
   Set it persistently (User scope, takes effect in new shells):
-    setx QWEN_API_KEY "sk-xxxxxxxxxxxxxxxxxx"
+    setx $Name "sk-xxxxxxxxxxxxxxxxxx"
   Or for the current shell only:
-    $env:QWEN_API_KEY = 'sk-xxxxxxxxxxxxxxxxxx'
-'@
+    `$env:$Name = 'sk-xxxxxxxxxxxxxxxxxx'
+"@
     exit 1
 }
 
@@ -181,9 +183,7 @@ $i = 0
     }
 }
 
-$apiKey = Resolve-ApiKey
-
-# ---- Resolve base URL and model lineup from the chosen plan ----------------
+# ---- Resolve base URL, model lineup, and key variable from the chosen plan -
 
 switch ($Plan) {
     'token-plan' {
@@ -191,6 +191,7 @@ switch ($Plan) {
         $proModelDefault  = 'qwen3.7-max'
         $flashModelDefault= 'qwen3.6-flash'
         $planLabel        = 'Token Plan'
+        $keyVar           = 'DASHSCOPE_TP_API_KEY'
     }
     'coding' {
         # Coding Plan only serves qwen3.6-plus — no separate flash tier.
@@ -198,6 +199,7 @@ switch ($Plan) {
         $proModelDefault  = 'qwen3.6-plus'
         $flashModelDefault= 'qwen3.6-plus'
         $planLabel        = 'Coding Plan'
+        $keyVar           = 'DASHSCOPE_CP_API_KEY'
     }
     default {
         $Plan = 'payg'
@@ -209,8 +211,11 @@ switch ($Plan) {
         $proModelDefault  = 'qwen3.7-max'
         $flashModelDefault= 'qwen3.6-flash'
         $planLabel        = 'pay-as-you-go'
+        $keyVar           = 'DASHSCOPE_API_KEY'
     }
 }
+
+$apiKey = Resolve-ApiKey $keyVar $planLabel
 
 $baseUrl    = if ($env:QWEN_BASE_URL)    { $env:QWEN_BASE_URL }    else { $baseUrlDefault }
 $proModel   = if ($env:QWEN_MODEL)       { $env:QWEN_MODEL }       else { $proModelDefault }

@@ -9,8 +9,11 @@
 #   - Coding Plan   : https://coding.dashscope.aliyuncs.com/apps/anthropic
 #   - Token Plan    : https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic
 #
-# Reads QWEN_API_KEY (or DASHSCOPE_API_KEY) from the environment first, then
-# falls back to ~/.zshrc / ~/.bashrc / ~/.bash_profile / ~/.profile.
+# Reads the plan-specific Bailian API key from the environment, then falls back
+# to ~/.zshrc / ~/.bashrc / ~/.bash_profile / ~/.profile:
+#   - Pay-as-you-go : DASHSCOPE_API_KEY
+#   - Coding Plan   : DASHSCOPE_CP_API_KEY
+#   - Token Plan    : DASHSCOPE_TP_API_KEY
 #
 # Quick start (no install needed):
 #   chmod +x qwclaude
@@ -69,35 +72,17 @@ qwclaude_update() {
 }
 
 extract_key_from_file() {
-  local file="$1"
+  local file="$1" var="$2"
   [ -f "$file" ] || return 1
-  grep -E '^[[:space:]]*(export[[:space:]]+)?(QWEN_API_KEY|DASHSCOPE_API_KEY)=' "$file" \
+  grep -E "^[[:space:]]*(export[[:space:]]+)?${var}=" "$file" \
     | tail -n1 \
-    | sed -E 's/^[[:space:]]*(export[[:space:]]+)?(QWEN_API_KEY|DASHSCOPE_API_KEY)=//' \
+    | sed -E "s/^[[:space:]]*(export[[:space:]]+)?${var}=//" \
     | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'
 }
 
 # Handle the update subcommand before the API-key check so it works key-less.
 if [ $# -gt 0 ] && [ "$1" = "update" ]; then
   qwclaude_update
-fi
-
-API_KEY="${QWEN_API_KEY:-${DASHSCOPE_API_KEY:-}}"
-if [ -z "$API_KEY" ]; then
-  for f in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
-    candidate="$(extract_key_from_file "$f" || true)"
-    if [ -n "${candidate:-}" ]; then
-      API_KEY="$candidate"
-      break
-    fi
-  done
-fi
-
-if [ -z "$API_KEY" ]; then
-  echo "❌ QWEN_API_KEY (or DASHSCOPE_API_KEY) not found." >&2
-  echo "   Add one line to ~/.zshrc or ~/.bashrc:" >&2
-  echo "     export QWEN_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # Bailian API Key" >&2
-  exit 1
 fi
 
 PLAN="${QWEN_PLAN:-payg}"
@@ -125,6 +110,7 @@ case "$PLAN" in
     PRO_MODEL_DEFAULT="qwen3.7-max"
     FLASH_MODEL_DEFAULT="qwen3.6-flash"
     PLAN_LABEL="Token Plan"
+    KEY_VAR="DASHSCOPE_TP_API_KEY"
     ;;
   coding)
     # Coding Plan only serves qwen3.6-plus — no separate flash tier.
@@ -132,6 +118,7 @@ case "$PLAN" in
     PRO_MODEL_DEFAULT="qwen3.6-plus"
     FLASH_MODEL_DEFAULT="qwen3.6-plus"
     PLAN_LABEL="Coding Plan"
+    KEY_VAR="DASHSCOPE_CP_API_KEY"
     ;;
   *)
     PLAN="payg"
@@ -143,8 +130,28 @@ case "$PLAN" in
     PRO_MODEL_DEFAULT="qwen3.7-max"
     FLASH_MODEL_DEFAULT="qwen3.6-flash"
     PLAN_LABEL="pay-as-you-go"
+    KEY_VAR="DASHSCOPE_API_KEY"
     ;;
 esac
+
+# Resolve the plan-specific API key: env var first, then shell rc files.
+API_KEY="${!KEY_VAR:-}"
+if [ -z "$API_KEY" ]; then
+  for f in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+    candidate="$(extract_key_from_file "$f" "$KEY_VAR" || true)"
+    if [ -n "${candidate:-}" ]; then
+      API_KEY="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ -z "$API_KEY" ]; then
+  echo "❌ $KEY_VAR not found (needed for Bailian $PLAN_LABEL)." >&2
+  echo "   Add one line to ~/.zshrc or ~/.bashrc:" >&2
+  echo "     export $KEY_VAR=sk-xxxxxxxxxxxxxxxxxx" >&2
+  exit 1
+fi
 
 BASE_URL="${QWEN_BASE_URL:-$BASE_URL_DEFAULT}"
 PRO_MODEL="${QWEN_MODEL:-$PRO_MODEL_DEFAULT}"
