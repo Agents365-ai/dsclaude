@@ -11,6 +11,8 @@
 |------|-------|------|------|------|
 | **[dsclaude](dsclaude)** | Claude Code (CLI) | macOS / Linux | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro[1m]`（默认，统一推理）· `deepseek-v4-flash[1m]`（快速 / haiku 档位） |
 | **[mmclaude](mmclaude)** | Claude Code (CLI) | macOS / Linux | 小米 MiMo（Anthropic 兼容端点） | `mimo-v2.5-pro`（默认）· `mimo-v2.5`（快速 / haiku 档位） |
+| **[qwclaude](qwclaude)** | Claude Code (CLI) | macOS / Linux | 阿里云百炼 Qwen（Anthropic 兼容端点） | `qwen3.7-max`（默认）· `qwen3.6-flash`（快速 / haiku 档位）· `qwen3.6-plus`（Coding Plan） |
+| **[qwclaude.ps1](qwclaude.ps1)** | Claude Code (CLI) | Windows（PowerShell 7+） | 阿里云百炼 Qwen（Anthropic 兼容端点） | 同上 |
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (GUI) | macOS | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro` · `deepseek-v4-flash`（均启用 1M 上下文） |
 | **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows（Store 版 & 标准安装） | DeepSeek API（Anthropic 兼容端点） | 同上 |
 | **[skills/deepseek-vision](skills/deepseek-vision/)** | skill（任何加载 SKILL.md 的 agent） | macOS / Linux | DashScope（OpenAI/Anthropic 兼容） | `qwen3.6-flash`（默认视觉模型） |
@@ -70,6 +72,29 @@ mmclaude update           # git pull 拉取更新
 ```
 
 按 key 前缀自动选择 base URL（`sk-*` → 公网，`tp-*` → Token Plan），可用 `MIMO_BASE_URL` 覆盖。main/opus/sonnet 槽位使用 `mimo-v2.5-pro`，haiku 与子代理（subagent）档使用 `mimo-v2.5`（flash）；`mmclaude fast` 会把主模型切到 flash，另一档会出现在 `/model` 选择器里以便会话中切换。自动 unset `ANTHROPIC_API_KEY`（避免遮蔽 bearer token）。可用 `MIMO_MODEL` / `MIMO_FLASH_MODEL` 覆盖两档模型。
+
+---
+
+## qwclaude — Claude Code 接入阿里云百炼 Qwen
+
+```bash
+export QWEN_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # 百炼 API Key（也可用 DASHSCOPE_API_KEY）
+
+# macOS / Linux
+qwclaude                  # 按量付费，qwen3.7-max（北京）
+qwclaude fast             # 用 flash 档（qwen3.6-flash）作主模型
+qwclaude intl             # 按量付费，新加坡端点
+qwclaude coding           # Coding Plan（qwen3.6-plus）
+qwclaude token            # Token Plan 团队版（qwen3.7-max）
+qwclaude update           # git pull 拉取更新
+
+# Windows（PowerShell 7+）
+pwsh -File ./qwclaude.ps1 coding
+```
+
+按所选套餐自动选择 base URL 与模型阵容：按量付费 / Token Plan 用 `qwen3.7-max`（main/opus/sonnet），haiku 与子代理（subagent）档用 `qwen3.6-flash`；Coding Plan 仅有 `qwen3.6-plus` 一个模型。`fast` 会把主模型切到 flash，另一档会出现在 `/model` 选择器里。设置 `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` 并 unset `ANTHROPIC_API_KEY`，把流量锁定在百炼（避免连到 `api.anthropic.com` 报错）。可用 `QWEN_PLAN` / `QWEN_REGION` / `QWEN_MODEL` / `QWEN_FLASH_MODEL` / `QWEN_BASE_URL` 覆盖。
+
+> Windows 版（`qwclaude.ps1`）需要 PowerShell 7+（`winget install Microsoft.PowerShell`），用 `pwsh -File` 运行。
 
 ---
 
