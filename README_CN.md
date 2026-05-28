@@ -78,21 +78,24 @@ mmclaude update           # git pull 拉取更新
 ## qwclaude — Claude Code 接入阿里云百炼 Qwen
 
 ```bash
-export QWEN_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # 百炼 API Key（也可用 DASHSCOPE_API_KEY）
+# 每个套餐一把 key，分别来自百炼控制台不同入口：
+export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx      # 按量付费
+export DASHSCOPE_CP_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # Coding Plan
+export DASHSCOPE_TP_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # Token Plan 团队版
 
 # macOS / Linux
-qwclaude                  # 按量付费，qwen3.7-max（北京）
+qwclaude                  # 按量付费，qwen3.7-max（北京）   → DASHSCOPE_API_KEY
 qwclaude fast             # 用 flash 档（qwen3.6-flash）作主模型
 qwclaude intl             # 按量付费，新加坡端点
-qwclaude coding           # Coding Plan（qwen3.6-plus）
-qwclaude token            # Token Plan 团队版（qwen3.7-max）
+qwclaude coding           # Coding Plan（qwen3.6-plus）      → DASHSCOPE_CP_API_KEY
+qwclaude token            # Token Plan 团队版（qwen3.7-max） → DASHSCOPE_TP_API_KEY
 qwclaude update           # git pull 拉取更新
 
 # Windows（PowerShell 7+）
 pwsh -File ./qwclaude.ps1 coding
 ```
 
-按所选套餐自动选择 base URL 与模型阵容：按量付费 / Token Plan 用 `qwen3.7-max`（main/opus/sonnet），haiku 与子代理（subagent）档用 `qwen3.6-flash`；Coding Plan 仅有 `qwen3.6-plus` 一个模型。`fast` 会把主模型切到 flash，另一档会出现在 `/model` 选择器里。设置 `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` 并 unset `ANTHROPIC_API_KEY`，把流量锁定在百炼（避免连到 `api.anthropic.com` 报错）。可用 `QWEN_PLAN` / `QWEN_REGION` / `QWEN_MODEL` / `QWEN_FLASH_MODEL` / `QWEN_BASE_URL` 覆盖。
+按所选套餐自动选择 base URL、模型阵容与 API key 变量：按量付费（`DASHSCOPE_API_KEY`）/ Token Plan（`DASHSCOPE_TP_API_KEY`）用 `qwen3.7-max`（main/opus/sonnet），haiku 与子代理（subagent）档用 `qwen3.6-flash`；Coding Plan（`DASHSCOPE_CP_API_KEY`）仅有 `qwen3.6-plus` 一个模型。`fast` 会把主模型切到 flash，另一档会出现在 `/model` 选择器里。设置 `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` 并 unset `ANTHROPIC_API_KEY`，把流量锁定在百炼（避免连到 `api.anthropic.com` 报错）。可用 `QWEN_PLAN` / `QWEN_REGION` / `QWEN_MODEL` / `QWEN_FLASH_MODEL` / `QWEN_BASE_URL` 覆盖。
 
 > Windows 版（`qwclaude.ps1`）需要 PowerShell 7+（`winget install Microsoft.PowerShell`），用 `pwsh -File` 运行。
 
