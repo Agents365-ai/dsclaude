@@ -16,6 +16,10 @@ A collection of launchers and configurators that point [Claude Code](https://cla
 | **[qwclaude.ps1](qwclaude.ps1)** | Claude Code CLI launcher | Windows | Alibaba Cloud Bailian (Qwen) |
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop GUI configurator | macOS | DeepSeek |
 | **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop GUI configurator | Windows | DeepSeek |
+| **[mmclaude-desktop](mmclaude-desktop)** | Claude Desktop GUI configurator | macOS | Xiaomi MiMo |
+| **[mmclaude-desktop.ps1](mmclaude-desktop.ps1)** | Claude Desktop GUI configurator | Windows | Xiaomi MiMo |
+| **[qwclaude-desktop](qwclaude-desktop)** | Claude Desktop GUI configurator | macOS | Alibaba Cloud Bailian (Qwen) |
+| **[qwclaude-desktop.ps1](qwclaude-desktop.ps1)** | Claude Desktop GUI configurator | Windows | Alibaba Cloud Bailian (Qwen) |
 | **[skills/deepseek-vision](skills/deepseek-vision/)** | Vision skill (zero deps) | macOS / Linux | DashScope Qwen |
 | **[dsvision-mcp](dsvision-mcp)** | Vision MCP server | macOS / Linux | DashScope Qwen |
 
@@ -134,6 +138,44 @@ Prerequisites: Claude Desktop installed (Store or standard), DeepSeek API key. U
 Config path: `%LOCALAPPDATA%\Claude-3p\configLibrary\` (for Store/MSIX installs, the script also writes to the sandboxed package path as a fallback).
 
 Tested on Windows 11 with Claude Desktop 1.7196 (Windows Store, arm64).
+
+---
+
+## mmclaude-desktop — Claude Desktop on Xiaomi MiMo
+
+Same configurator as `dsclaude-desktop`, pre-filled for Xiaomi MiMo. Reads `MIMO_API_KEY` and auto-detects the base URL from the key prefix (`tp-*` → Token Plan, else pay-as-you-go; override with `MIMO_BASE_URL`). Configures `mimo-v2.5-pro` + `mimo-v2.5`.
+
+```bash
+export MIMO_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # or tp-... for Token Plan
+./mmclaude-desktop        # configure and restart (macOS)
+./mmclaude-desktop -h     # help
+
+# Windows (PowerShell)
+$env:MIMO_API_KEY = "sk-xxxxxxxxxxxxxxxxxx"
+pwsh ./mmclaude-desktop.ps1
+```
+
+---
+
+## qwclaude-desktop — Claude Desktop on Alibaba Cloud Bailian (Qwen)
+
+Same configurator, with per-plan base URL, models, and key variable. Pay-as-you-go (`DASHSCOPE_API_KEY`) and Token Plan (`DASHSCOPE_TP_API_KEY`) configure `qwen3.7-max` + `qwen3.6-flash`; Coding Plan (`DASHSCOPE_CP_API_KEY`) configures `qwen3.6-plus`.
+
+```bash
+export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx       # pay-as-you-go
+export DASHSCOPE_CP_API_KEY=sk-xxxxxxxxxxxxxxxxxx    # Coding Plan
+export DASHSCOPE_TP_API_KEY=sk-xxxxxxxxxxxxxxxxxx    # Token Plan
+
+./qwclaude-desktop            # pay-as-you-go (Beijing), then restart
+./qwclaude-desktop intl       # pay-as-you-go, Singapore endpoint
+./qwclaude-desktop coding     # Coding Plan
+./qwclaude-desktop token      # Token Plan
+
+# Windows (PowerShell)
+pwsh ./qwclaude-desktop.ps1 -Plan coding
+```
+
+> The `.ps1` Windows ports mirror `dsclaude-desktop.ps1` and are **untested by the maintainer** — please [open an issue](https://github.com/Agents365-ai/dsclaude/issues) if anything misbehaves. Both configurators set `unstableDisableModelVerification` so Claude Desktop accepts the non-Anthropic model names, and (like `dsclaude-desktop`) disable Chat mode while the gateway is active.
 
 ## deepseek-vision skill — Vision (zero-dependency)
 
