@@ -57,10 +57,11 @@ export MIMO_API_KEY=sk-xxxxxxxxxxxxxxxxxx       # pay-as-you-go
 export MIMO_API_KEY=tp-xxxxxxxxxxxxxxxxxx       # Token Plan
 
 mmclaude                  # start on mimo-v2.5-pro
+mmclaude fast             # start on mimo-v2.5 (cheaper / faster flash tier)
 mmclaude update           # git pull
 ```
 
-Auto-detects base URL from the key prefix (`sk-*` → public, `tp-*` → Token Plan); override with `MIMO_BASE_URL`. Sets all four model slots to `mimo-v2.5-pro` and unsets `ANTHROPIC_API_KEY` (per MiMo docs).
+Auto-detects base URL from the key prefix (`sk-*` → public, `tp-*` → Token Plan); override with `MIMO_BASE_URL`. Main/opus/sonnet slots run `mimo-v2.5-pro` while the haiku and subagent tiers run `mimo-v2.5` (flash); `mmclaude fast` flips the main model to flash, and the other tier is exposed in the `/model` picker for mid-session switching. Unsets `ANTHROPIC_API_KEY` (per MiMo docs). Override the tiers with `MIMO_MODEL` / `MIMO_FLASH_MODEL`.
 
 ---
 

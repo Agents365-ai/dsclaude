@@ -19,12 +19,18 @@
 #
 # Use:
 #   mmclaude                  # start on mimo-v2.5-pro (MiMo default)
+#   mmclaude fast             # start on mimo-v2.5 (cheaper / faster flash tier)
 #   mmclaude update           # git pull latest from this repo
 #   mmclaude --help           # any remaining flag is forwarded to claude
 #
 # Optional env overrides:
 #   MIMO_MODEL=mimo-v2.5-pro                 # main model
+#   MIMO_FLASH_MODEL=mimo-v2.5               # flash / haiku / subagent tier
 #   MIMO_BASE_URL=https://.../anthropic      # custom Anthropic-compatible base URL
+#
+# In-session switch:
+#   /model mimo-v2.5        # switch to the flash tier
+#   /model mimo-v2.5-pro    # switch back to pro
 #
 set -euo pipefail
 
@@ -96,7 +102,27 @@ if [ -z "$BASE_URL" ]; then
   esac
 fi
 
-MODEL="${MIMO_MODEL:-mimo-v2.5-pro}"
+PRO_MODEL="${MIMO_MODEL:-mimo-v2.5-pro}"
+FLASH_MODEL="${MIMO_FLASH_MODEL:-mimo-v2.5}"
+
+# Positional alias: `fast`/`flash` runs the flash tier as the main model.
+MAIN_MODEL="$PRO_MODEL"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    fast|flash) MAIN_MODEL="$FLASH_MODEL"; shift ;;
+    --) shift; break ;;
+    *) break ;;
+  esac
+done
+
+# Surface the other model in Claude Code's /model picker for mid-session switching.
+if [ "$MAIN_MODEL" = "$PRO_MODEL" ]; then
+  OTHER_MODEL="$FLASH_MODEL"
+  OTHER_DESC="MiMo v2.5 — fast / cheap haiku tier"
+else
+  OTHER_MODEL="$PRO_MODEL"
+  OTHER_DESC="MiMo v2.5 Pro — full reasoning"
+fi
 
 # MiMo docs explicitly warn to clear lingering official Anthropic credentials
 # before launching, otherwise they shadow ANTHROPIC_AUTH_TOKEN.
@@ -104,10 +130,17 @@ unset ANTHROPIC_API_KEY 2>/dev/null || true
 
 export ANTHROPIC_BASE_URL="$BASE_URL"
 export ANTHROPIC_AUTH_TOKEN="$API_KEY"
-export ANTHROPIC_MODEL="$MODEL"
-export ANTHROPIC_DEFAULT_OPUS_MODEL="$MODEL"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="$MODEL"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="$MODEL"
+export ANTHROPIC_MODEL="$MAIN_MODEL"
+export ANTHROPIC_DEFAULT_OPUS_MODEL="$MAIN_MODEL"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="$MAIN_MODEL"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="$FLASH_MODEL"
+# Subagents run on the cheaper flash tier.
+export CLAUDE_CODE_SUBAGENT_MODEL="$FLASH_MODEL"
 
-echo "🚀 Claude Code on MiMo  →  $MODEL  ($BASE_URL)"
+# Expose the other MiMo model inside the `/model` picker.
+export ANTHROPIC_CUSTOM_MODEL_OPTION="$OTHER_MODEL"
+export ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="$OTHER_MODEL"
+export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="$OTHER_DESC"
+
+echo "🚀 Claude Code on MiMo  →  $MAIN_MODEL  ($BASE_URL)  (switch mid-session via /model)"
 exec claude "$@"

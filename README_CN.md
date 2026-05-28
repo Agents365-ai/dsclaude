@@ -10,7 +10,7 @@
 | 脚本 | Agent | 平台 | 后端 | 模型 |
 |------|-------|------|------|------|
 | **[dsclaude](dsclaude)** | Claude Code (CLI) | macOS / Linux | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro[1m]`（默认，统一推理）· `deepseek-v4-flash[1m]`（快速 / haiku 档位） |
-| **[mmclaude](mmclaude)** | Claude Code (CLI) | macOS / Linux | 小米 MiMo（Anthropic 兼容端点） | `mimo-v2.5-pro` |
+| **[mmclaude](mmclaude)** | Claude Code (CLI) | macOS / Linux | 小米 MiMo（Anthropic 兼容端点） | `mimo-v2.5-pro`（默认）· `mimo-v2.5`（快速 / haiku 档位） |
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (GUI) | macOS | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro` · `deepseek-v4-flash`（均启用 1M 上下文） |
 | **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows（Store 版 & 标准安装） | DeepSeek API（Anthropic 兼容端点） | 同上 |
 | **[skills/deepseek-vision](skills/deepseek-vision/)** | skill（任何加载 SKILL.md 的 agent） | macOS / Linux | DashScope（OpenAI/Anthropic 兼容） | `qwen3.6-flash`（默认视觉模型） |
@@ -65,10 +65,11 @@ export MIMO_API_KEY=sk-xxxxxxxxxxxxxxxxxx       # 按量付费
 export MIMO_API_KEY=tp-xxxxxxxxxxxxxxxxxx       # Token Plan
 
 mmclaude                  # 启动 mimo-v2.5-pro
+mmclaude fast             # 启动 mimo-v2.5（更便宜 / 更快的 flash 档）
 mmclaude update           # git pull 拉取更新
 ```
 
-按 key 前缀自动选择 base URL（`sk-*` → 公网，`tp-*` → Token Plan），可用 `MIMO_BASE_URL` 覆盖。所有模型槽位都指向 `mimo-v2.5-pro`，并自动 unset `ANTHROPIC_API_KEY`（避免遮蔽 bearer token）。
+按 key 前缀自动选择 base URL（`sk-*` → 公网，`tp-*` → Token Plan），可用 `MIMO_BASE_URL` 覆盖。main/opus/sonnet 槽位使用 `mimo-v2.5-pro`，haiku 与子代理（subagent）档使用 `mimo-v2.5`（flash）；`mmclaude fast` 会把主模型切到 flash，另一档会出现在 `/model` 选择器里以便会话中切换。自动 unset `ANTHROPIC_API_KEY`（避免遮蔽 bearer token）。可用 `MIMO_MODEL` / `MIMO_FLASH_MODEL` 覆盖两档模型。
 
 ---
 
