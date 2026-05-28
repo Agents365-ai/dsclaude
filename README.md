@@ -11,7 +11,9 @@ A collection of launchers and configurators that point [Claude Code](https://cla
 | Tool | What it does | Platform | Backend |
 |------|-------------|----------|---------|
 | **[dsclaude](dsclaude)** | Claude Code CLI launcher | macOS / Linux | DeepSeek |
+| **[dsclaude.ps1](dsclaude.ps1)** | Claude Code CLI launcher | Windows | DeepSeek |
 | **[mmclaude](mmclaude)** | Claude Code CLI launcher | macOS / Linux | Xiaomi MiMo |
+| **[mmclaude.ps1](mmclaude.ps1)** | Claude Code CLI launcher | Windows | Xiaomi MiMo |
 | **[qwclaude](qwclaude)** | Claude Code CLI launcher | macOS / Linux | Alibaba Cloud Bailian (Qwen) |
 | **[qwclaude.ps1](qwclaude.ps1)** | Claude Code CLI launcher | Windows | Alibaba Cloud Bailian (Qwen) |
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop GUI configurator | macOS | DeepSeek |
@@ -52,6 +54,8 @@ dsclaude long fast       # 1M + flash
 Sets the DeepSeek-recommended env vars (`ANTHROPIC_BASE_URL`, model mappings, `CLAUDE_CODE_EFFORT_LEVEL=max`), and exposes the alternate model in Claude Code's `/model` picker. Override context window via `DSCLAUDE_MAX_TOKENS` and effort via `DSCLAUDE_EFFORT`.
 
 > Both models natively support 1M-token context. The `[1m]` suffix (e.g. `deepseek-v4-pro[1m]`) is required in Claude Code — `dsclaude` sets it automatically.
+>
+> Windows (PowerShell 7+): `pwsh -File ./dsclaude.ps1` (same flags).
 
 ---
 
@@ -68,6 +72,8 @@ mmclaude update           # git pull
 ```
 
 Auto-detects base URL from the key prefix (`sk-*` → public, `tp-*` → Token Plan); override with `MIMO_BASE_URL`. Main/opus/sonnet slots run `mimo-v2.5-pro` while the haiku and subagent tiers run `mimo-v2.5` (flash); `mmclaude fast` flips the main model to flash, and the other tier is exposed in the `/model` picker for mid-session switching. Unsets `ANTHROPIC_API_KEY` (per MiMo docs). Override the tiers with `MIMO_MODEL` / `MIMO_FLASH_MODEL`.
+
+> Windows (PowerShell 7+): `pwsh -File ./mmclaude.ps1` (same flags).
 
 ---
 

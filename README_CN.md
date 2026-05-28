@@ -10,7 +10,9 @@
 | 脚本 | Agent | 平台 | 后端 | 模型 |
 |------|-------|------|------|------|
 | **[dsclaude](dsclaude)** | Claude Code (CLI) | macOS / Linux | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro[1m]`（默认，统一推理）· `deepseek-v4-flash[1m]`（快速 / haiku 档位） |
+| **[dsclaude.ps1](dsclaude.ps1)** | Claude Code (CLI) | Windows（PowerShell 7+） | DeepSeek API（Anthropic 兼容端点） | 同上 |
 | **[mmclaude](mmclaude)** | Claude Code (CLI) | macOS / Linux | 小米 MiMo（Anthropic 兼容端点） | `mimo-v2.5-pro`（默认）· `mimo-v2.5`（快速 / haiku 档位） |
+| **[mmclaude.ps1](mmclaude.ps1)** | Claude Code (CLI) | Windows（PowerShell 7+） | 小米 MiMo（Anthropic 兼容端点） | 同上 |
 | **[qwclaude](qwclaude)** | Claude Code (CLI) | macOS / Linux | 阿里云百炼 Qwen（Anthropic 兼容端点） | `qwen3.7-max`（默认）· `qwen3.6-flash`（快速 / haiku 档位）· `qwen3.6-plus`（Coding Plan） |
 | **[qwclaude.ps1](qwclaude.ps1)** | Claude Code (CLI) | Windows（PowerShell 7+） | 阿里云百炼 Qwen（Anthropic 兼容端点） | 同上 |
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop (GUI) | macOS | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro` · `deepseek-v4-flash`（均启用 1M 上下文） |
@@ -51,6 +53,8 @@ dsclaude long fast       # 1M + flash
 自动设置 DeepSeek 推荐的环境变量（`ANTHROPIC_BASE_URL`、模型映射、`CLAUDE_CODE_EFFORT_LEVEL=max`），并在 `/model` 选择器中暴露备选模型。上下文窗口上限可通过 `DSCLAUDE_MAX_TOKENS` 覆盖，effort 级别通过 `DSCLAUDE_EFFORT` 覆盖。
 
 > 两个模型都原生支持 1M token，在 Claude Code 中需加 `[1m]` 后缀（如 `deepseek-v4-pro[1m]`），脚本已自动处理。
+>
+> Windows（PowerShell 7+）：`pwsh -File ./dsclaude.ps1`（参数相同）。
 
 ---
 
@@ -67,6 +71,8 @@ mmclaude update           # git pull 拉取更新
 ```
 
 按 key 前缀自动选择 base URL（`sk-*` → 公网，`tp-*` → Token Plan），可用 `MIMO_BASE_URL` 覆盖。main/opus/sonnet 槽位使用 `mimo-v2.5-pro`，haiku 与子代理（subagent）档使用 `mimo-v2.5`（flash）；`mmclaude fast` 会把主模型切到 flash，另一档会出现在 `/model` 选择器里以便会话中切换。自动 unset `ANTHROPIC_API_KEY`（避免遮蔽 bearer token）。可用 `MIMO_MODEL` / `MIMO_FLASH_MODEL` 覆盖两档模型。
+
+> Windows（PowerShell 7+）：`pwsh -File ./mmclaude.ps1`（参数相同）。
 
 ---
 
