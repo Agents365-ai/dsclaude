@@ -22,15 +22,6 @@
 | **[skills/deepseek-vision](skills/deepseek-vision/)** | skill（任何加载 SKILL.md 的 agent） | macOS / Linux | DashScope（OpenAI/Anthropic 兼容） | `qwen3.6-flash`（默认视觉模型） |
 | **[dsvision-mcp](dsvision-mcp)** | MCP server（Claude Desktop / Cowork / 任何 MCP 客户端） | macOS / Linux | DashScope | `qwen3.6-flash`（默认视觉模型） |
 
-| 工具 | 作用 | 平台 | 后端 |
-|------|------|------|------|
-| **[dsclaude](dsclaude)** | Claude Code CLI 启动器 | macOS / Linux | DeepSeek |
-| **[mmclaude](mmclaude)** | Claude Code CLI 启动器 | macOS / Linux | 小米 MiMo |
-| **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop GUI 配置器 | macOS | DeepSeek |
-| **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop GUI 配置器 | Windows | DeepSeek |
-| **[skills/deepseek-vision](skills/deepseek-vision/)** | 视觉识别 skill（零依赖） | macOS / Linux | DashScope Qwen |
-| **[dsvision-mcp](dsvision-mcp)** | 视觉识别 MCP 服务 | macOS / Linux | DashScope Qwen |
-
 ---
 
 ## macOS 快速开始
