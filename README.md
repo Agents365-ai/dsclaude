@@ -12,6 +12,8 @@ A collection of launchers and configurators that point [Claude Code](https://cla
 |------|-------------|----------|---------|
 | **[dsclaude](dsclaude)** | Claude Code CLI launcher | macOS / Linux | DeepSeek |
 | **[mmclaude](mmclaude)** | Claude Code CLI launcher | macOS / Linux | Xiaomi MiMo |
+| **[qwclaude](qwclaude)** | Claude Code CLI launcher | macOS / Linux | Alibaba Cloud Bailian (Qwen) |
+| **[qwclaude.ps1](qwclaude.ps1)** | Claude Code CLI launcher | Windows | Alibaba Cloud Bailian (Qwen) |
 | **[dsclaude-desktop](dsclaude-desktop)** | Claude Desktop GUI configurator | macOS | DeepSeek |
 | **[dsclaude-desktop.ps1](dsclaude-desktop.ps1)** | Claude Desktop GUI configurator | Windows | DeepSeek |
 | **[skills/deepseek-vision](skills/deepseek-vision/)** | Vision skill (zero deps) | macOS / Linux | DashScope Qwen |
@@ -62,6 +64,29 @@ mmclaude update           # git pull
 ```
 
 Auto-detects base URL from the key prefix (`sk-*` → public, `tp-*` → Token Plan); override with `MIMO_BASE_URL`. Main/opus/sonnet slots run `mimo-v2.5-pro` while the haiku and subagent tiers run `mimo-v2.5` (flash); `mmclaude fast` flips the main model to flash, and the other tier is exposed in the `/model` picker for mid-session switching. Unsets `ANTHROPIC_API_KEY` (per MiMo docs). Override the tiers with `MIMO_MODEL` / `MIMO_FLASH_MODEL`.
+
+---
+
+## qwclaude — Claude Code on Alibaba Cloud Bailian (Qwen)
+
+```bash
+export QWEN_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # Bailian API Key (or DASHSCOPE_API_KEY)
+
+# macOS / Linux
+qwclaude                  # pay-as-you-go, qwen3.7-max (Beijing)
+qwclaude fast             # flash tier (qwen3.6-flash) as the main model
+qwclaude intl             # pay-as-you-go on the Singapore endpoint
+qwclaude coding           # Coding Plan (qwen3.6-plus)
+qwclaude token            # Token Plan team edition (qwen3.7-max)
+qwclaude update           # git pull
+
+# Windows (PowerShell 7+)
+pwsh -File ./qwclaude.ps1 coding
+```
+
+Picks the base URL and model lineup per billing plan: pay-as-you-go / Token Plan run `qwen3.7-max` (main/opus/sonnet) with `qwen3.6-flash` on the haiku + subagent tiers; Coding Plan runs `qwen3.6-plus` (its only model). `fast` flips the main model to flash, and the other tier is exposed in the `/model` picker. Sets `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` and unsets `ANTHROPIC_API_KEY` to keep traffic on Bailian (avoids the `api.anthropic.com` connection error). Override via `QWEN_PLAN` / `QWEN_REGION` / `QWEN_MODEL` / `QWEN_FLASH_MODEL` / `QWEN_BASE_URL`.
+
+> The Windows port (`qwclaude.ps1`) requires PowerShell 7+ (`winget install Microsoft.PowerShell`) — run it with `pwsh -File`.
 
 ---
 

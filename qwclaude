@@ -1,0 +1,191 @@
+#!/usr/bin/env bash
+# qwclaude — launch Claude Code on Alibaba Cloud Bailian's Qwen models
+# (Anthropic-compatible endpoint).
+#
+# Follows the official Bailian "Claude Code 配置" guide. Three billing plans,
+# each with its own base URL and model lineup:
+#   - Pay-as-you-go : https://dashscope.aliyuncs.com/apps/anthropic        (Beijing)
+#                     https://dashscope-intl.aliyuncs.com/apps/anthropic   (Singapore)
+#   - Coding Plan   : https://coding.dashscope.aliyuncs.com/apps/anthropic
+#   - Token Plan    : https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic
+#
+# Reads QWEN_API_KEY (or DASHSCOPE_API_KEY) from the environment first, then
+# falls back to ~/.zshrc / ~/.bashrc / ~/.bash_profile / ~/.profile.
+#
+# Quick start (no install needed):
+#   chmod +x qwclaude
+#   ./qwclaude
+#
+# Optional — make it globally available:
+#   sudo mv qwclaude /usr/local/bin/ && sudo chmod +x /usr/local/bin/qwclaude
+#
+# Use:
+#   qwclaude                  # pay-as-you-go, qwen3.7-max (Beijing)
+#   qwclaude fast             # run the flash tier (qwen3.6-flash) as the main model
+#   qwclaude intl             # pay-as-you-go on the Singapore endpoint
+#   qwclaude coding           # Coding Plan (qwen3.6-plus)
+#   qwclaude token            # Token Plan team edition (qwen3.7-max)
+#   qwclaude coding fast      # combine plan + flash
+#   qwclaude update           # git pull latest from this repo
+#   qwclaude --help           # any remaining flag is forwarded to claude
+#
+# Optional env overrides (take precedence over the positional aliases):
+#   QWEN_PLAN=payg|coding|token-plan         # billing plan
+#   QWEN_REGION=cn|intl                      # pay-as-you-go region (cn=Beijing)
+#   QWEN_MODEL=qwen3.7-max                   # main model
+#   QWEN_FLASH_MODEL=qwen3.6-flash           # flash / haiku / subagent tier
+#   QWEN_BASE_URL=https://.../apps/anthropic # custom Anthropic-compatible base URL
+#
+# In-session switch:
+#   /model qwen3.6-flash    # switch to the flash tier
+#   /model qwen3.7-max      # switch back to the main model
+#
+set -euo pipefail
+
+qwclaude_update() {
+  local repo=""
+  local self_dir
+  self_dir="$(cd "$(dirname "$0")" && pwd)"
+  if [ -d "$self_dir/.git" ]; then
+    repo="$self_dir"
+  fi
+  if [ -z "$repo" ] && [ -n "${QWCLAUDE_HOME:-}" ]; then
+    repo="$QWCLAUDE_HOME"
+  fi
+  if [ -z "$repo" ] && [ -d "$HOME/github/xxclaude/.git" ]; then
+    repo="$HOME/github/xxclaude"
+  fi
+  if [ -z "$repo" ]; then
+    echo "qwclaude: cannot find the xxclaude repo for self-update." >&2
+    echo "  Set QWCLAUDE_HOME=/path/to/xxclaude  or  cd into the repo and run ./qwclaude update" >&2
+    exit 1
+  fi
+  echo "qwclaude: pulling latest from $repo ..."
+  git -C "$repo" pull && echo "qwclaude: updated." || {
+    echo "qwclaude: git pull failed. Check network or resolve conflicts manually." >&2
+    exit 1
+  }
+  exit 0
+}
+
+extract_key_from_file() {
+  local file="$1"
+  [ -f "$file" ] || return 1
+  grep -E '^[[:space:]]*(export[[:space:]]+)?(QWEN_API_KEY|DASHSCOPE_API_KEY)=' "$file" \
+    | tail -n1 \
+    | sed -E 's/^[[:space:]]*(export[[:space:]]+)?(QWEN_API_KEY|DASHSCOPE_API_KEY)=//' \
+    | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'
+}
+
+# Handle the update subcommand before the API-key check so it works key-less.
+if [ $# -gt 0 ] && [ "$1" = "update" ]; then
+  qwclaude_update
+fi
+
+API_KEY="${QWEN_API_KEY:-${DASHSCOPE_API_KEY:-}}"
+if [ -z "$API_KEY" ]; then
+  for f in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+    candidate="$(extract_key_from_file "$f" || true)"
+    if [ -n "${candidate:-}" ]; then
+      API_KEY="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ -z "$API_KEY" ]; then
+  echo "❌ QWEN_API_KEY (or DASHSCOPE_API_KEY) not found." >&2
+  echo "   Add one line to ~/.zshrc or ~/.bashrc:" >&2
+  echo "     export QWEN_API_KEY=sk-xxxxxxxxxxxxxxxxxx   # Bailian API Key" >&2
+  exit 1
+fi
+
+PLAN="${QWEN_PLAN:-payg}"
+REGION="${QWEN_REGION:-cn}"
+WANT_FLASH=0
+
+# Positional aliases: plan, region, and `fast` (flash as the main model).
+while [ $# -gt 0 ]; do
+  case "$1" in
+    coding)              PLAN="coding"; shift ;;
+    token-plan|token|tp) PLAN="token-plan"; shift ;;
+    payg|pay-as-you-go)  PLAN="payg"; shift ;;
+    intl|singapore|sg)   REGION="intl"; shift ;;
+    cn|beijing)          REGION="cn"; shift ;;
+    fast|flash)          WANT_FLASH=1; shift ;;
+    --)                  shift; break ;;
+    *)                   break ;;
+  esac
+done
+
+# Resolve base URL and model lineup from the chosen plan (per Bailian docs).
+case "$PLAN" in
+  token-plan)
+    BASE_URL_DEFAULT="https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic"
+    PRO_MODEL_DEFAULT="qwen3.7-max"
+    FLASH_MODEL_DEFAULT="qwen3.6-flash"
+    PLAN_LABEL="Token Plan"
+    ;;
+  coding)
+    # Coding Plan only serves qwen3.6-plus — no separate flash tier.
+    BASE_URL_DEFAULT="https://coding.dashscope.aliyuncs.com/apps/anthropic"
+    PRO_MODEL_DEFAULT="qwen3.6-plus"
+    FLASH_MODEL_DEFAULT="qwen3.6-plus"
+    PLAN_LABEL="Coding Plan"
+    ;;
+  *)
+    PLAN="payg"
+    if [ "$REGION" = "intl" ]; then
+      BASE_URL_DEFAULT="https://dashscope-intl.aliyuncs.com/apps/anthropic"
+    else
+      BASE_URL_DEFAULT="https://dashscope.aliyuncs.com/apps/anthropic"
+    fi
+    PRO_MODEL_DEFAULT="qwen3.7-max"
+    FLASH_MODEL_DEFAULT="qwen3.6-flash"
+    PLAN_LABEL="pay-as-you-go"
+    ;;
+esac
+
+BASE_URL="${QWEN_BASE_URL:-$BASE_URL_DEFAULT}"
+PRO_MODEL="${QWEN_MODEL:-$PRO_MODEL_DEFAULT}"
+FLASH_MODEL="${QWEN_FLASH_MODEL:-$FLASH_MODEL_DEFAULT}"
+
+MAIN_MODEL="$PRO_MODEL"
+[ "$WANT_FLASH" = "1" ] && MAIN_MODEL="$FLASH_MODEL"
+
+# Surface the other model in Claude Code's /model picker for mid-session switching.
+if [ "$MAIN_MODEL" = "$PRO_MODEL" ]; then
+  OTHER_MODEL="$FLASH_MODEL"
+  OTHER_DESC="Qwen flash — fast / cheap haiku tier"
+else
+  OTHER_MODEL="$PRO_MODEL"
+  OTHER_DESC="Qwen — full reasoning"
+fi
+
+# Bailian docs warn that lingering official Anthropic credentials shadow
+# ANTHROPIC_AUTH_TOKEN and make Claude Code hit api.anthropic.com instead.
+unset ANTHROPIC_API_KEY 2>/dev/null || true
+
+export ANTHROPIC_BASE_URL="$BASE_URL"
+export ANTHROPIC_AUTH_TOKEN="$API_KEY"
+export API_TIMEOUT_MS="600000"
+export ANTHROPIC_MODEL="$MAIN_MODEL"
+export ANTHROPIC_DEFAULT_OPUS_MODEL="$MAIN_MODEL"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="$MAIN_MODEL"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="$FLASH_MODEL"
+# Subagents run on the cheaper flash tier.
+export CLAUDE_CODE_SUBAGENT_MODEL="$FLASH_MODEL"
+# Keep all traffic on Bailian; avoids the api.anthropic.com connection error.
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+
+# Expose the other Qwen model inside the `/model` picker (skip when identical).
+if [ "$OTHER_MODEL" != "$MAIN_MODEL" ]; then
+  export ANTHROPIC_CUSTOM_MODEL_OPTION="$OTHER_MODEL"
+  export ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="$OTHER_MODEL"
+  export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="$OTHER_DESC"
+fi
+
+banner="🚀 Claude Code on Qwen (Bailian $PLAN_LABEL)  →  $MAIN_MODEL  ($BASE_URL)"
+[ "$OTHER_MODEL" != "$MAIN_MODEL" ] && banner="$banner  (switch mid-session via /model)"
+echo "$banner"
+exec claude "$@"
