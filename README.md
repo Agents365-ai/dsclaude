@@ -59,16 +59,30 @@ A collection of launchers and configurators that point [Claude Code](https://cla
 ## Quick start on macOS
 
 ```bash
+# One-line install (recommended):
+curl -fsSL https://raw.githubusercontent.com/Agents365-ai/dsclaude/main/install.sh | bash
+
+# Or user install (no sudo):
+curl -fsSL https://raw.githubusercontent.com/Agents365-ai/dsclaude/main/install.sh | bash -s -- --user
+
+# Or manual:
 git clone https://github.com/Agents365-ai/dsclaude.git
 cd dsclaude
-
-# Easiest — auto-detect which API key you've set:
 chmod +x xclaude
 ./xclaude
+```
 
-# Or use a specific launcher directly:
-chmod +x dsclaude
-./dsclaude
+## Quick start on Windows
+
+```powershell
+# One-line install (PowerShell as admin recommended):
+irm https://raw.githubusercontent.com/Agents365-ai/dsclaude/main/install.ps1 | iex
+
+# Install with auto-PATH:
+irm https://raw.githubusercontent.com/Agents365-ai/dsclaude/main/install.ps1 | iex -AddToPath
+
+# Then launch:
+pwsh -File xclaude.ps1
 ```
 
 ---

@@ -58,16 +58,30 @@
 ## macOS 快速开始
 
 ```bash
+# 一行安装（推荐）：
+curl -fsSL https://raw.githubusercontent.com/Agents365-ai/dsclaude/main/install.sh | bash
+
+# 或用户目录安装（无需 sudo）：
+curl -fsSL https://raw.githubusercontent.com/Agents365-ai/dsclaude/main/install.sh | bash -s -- --user
+
+# 或手动安装：
 git clone https://github.com/Agents365-ai/dsclaude.git
 cd dsclaude
-
-# 最简单 — 自动检测你已设置的 API Key：
 chmod +x xclaude
 ./xclaude
+```
 
-# 或直接使用指定启动器：
-chmod +x dsclaude
-./dsclaude
+## Windows 快速开始
+
+```powershell
+# 一行安装（建议以管理员运行 PowerShell）：
+irm https://raw.githubusercontent.com/Agents365-ai/dsclaude/main/install.ps1 | iex
+
+# 安装并自动添加 PATH：
+irm https://raw.githubusercontent.com/Agents365-ai/dsclaude/main/install.ps1 | iex -AddToPath
+
+# 然后启动：
+pwsh -File xclaude.ps1
 ```
 
 ---
