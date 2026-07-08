@@ -1,32 +1,32 @@
 #!/usr/bin/env pwsh
-# qwclaude-desktop.ps1 — configure Claude Desktop to use Alibaba Cloud Bailian (Qwen) (Windows port).
+# arkclaude-desktop.ps1 — configure Claude Desktop to use Volcengine Ark (Windows port).
 #
 # Edits %APPDATA%\Claude-3p\configLibrary\{_meta,<uuid>}.json and restarts Claude Desktop.
-# This is the Windows companion to the macOS bash version `qwclaude-desktop` —
+# This is the Windows companion to the macOS bash version `arkclaude-desktop` —
 # same JSON schema, same flow, different shell.
 #
 # Note: This port has NOT been smoke-tested on Windows by the maintainer.
 # Schema and gotchas (trailing-newline-rejection, lowercase UUIDs, allowDevTools
-# gating, single-element-array JSON) were discovered on macOS; Anthropic ships
-# the same Electron app on Windows so they should hold, but please open an issue
-# if anything misbehaves: https://github.com/Agents365-ai/dsclaude/issues
+# gating) were discovered on macOS; Anthropic ships the same Electron app on
+# Windows so they should hold, but please open an issue if anything misbehaves:
+#   https://github.com/Agents365-ai/dsclaude/issues
 #
 # Usage:
-#   pwsh ./qwclaude-desktop.ps1                              # pay-as-you-go, qwen3.7-max
-#   pwsh ./qwclaude-desktop.ps1 -Plan payg -ModelTier plus   # qwen3.7-plus
-#   pwsh ./qwclaude-desktop.ps1 -Region intl                 # pay-as-you-go, Singapore
-#   pwsh ./qwclaude-desktop.ps1 -Plan coding                 # Coding Plan (qwen3.7-plus)
-#   pwsh ./qwclaude-desktop.ps1 -Plan token                  # Token Plan, qwen3.7-max
-#   pwsh ./qwclaude-desktop.ps1 -Plan token -ModelTier plus  # Token Plan, qwen3.7-plus
-#   pwsh ./qwclaude-desktop.ps1 -ClaudeExePath <path>        # specify custom Claude.exe
-#   pwsh ./qwclaude-desktop.ps1 -Update                      # git pull latest from the repo
-#   pwsh ./qwclaude-desktop.ps1 -h                           # help
+#   pwsh ./arkclaude-desktop.ps1                          # doubao-seed-2.0-code
+#   pwsh ./arkclaude-desktop.ps1 -ModelTier plus          # doubao-seed-2.0-pro
+#   pwsh ./arkclaude-desktop.ps1 -ModelTier kimi          # kimi-k2.7-code
+#   pwsh ./arkclaude-desktop.ps1 -ModelTier deepseek      # deepseek-v4-pro
+#   pwsh ./arkclaude-desktop.ps1 -ModelTier glm           # glm-5.2
+#   pwsh ./arkclaude-desktop.ps1 -ModelTier minimax       # minimax-m2.7
+#   pwsh ./arkclaude-desktop.ps1 -ClaudeExePath <path>    # specify custom Claude.exe
+#   pwsh ./arkclaude-desktop.ps1 -Update                  # git pull latest from the repo
+#   pwsh ./arkclaude-desktop.ps1 -h                       # help
 #
-# Reads the plan-specific Bailian API key from env (else prompts): pay-as-you-go
-# → DASHSCOPE_API_KEY, Coding Plan → DASHSCOPE_CP_API_KEY, Token Plan → DASHSCOPE_TP_API_KEY.
+# Reads ARK_API_KEY from env (else prompts). The base URL defaults to
+# https://ark.cn-beijing.volces.com/api/coding; override with $env:ARK_BASE_URL.
 #
 # Requires: PowerShell 5.1+ (Windows 10+ ships this), Claude Desktop installed,
-# Developer Mode enabled in Claude Desktop, Bailian API key.
+# Developer Mode enabled in Claude Desktop, Volcengine ARK API key.
 
 [CmdletBinding()]
 param(
@@ -34,12 +34,11 @@ param(
     [switch]$Update,
     [string]$ClaudeExePath,
     [Parameter(Position = 0)]
-    [ValidateSet('payg', 'pay-as-you-go', 'coding', 'token-plan', 'token', 'tp')]
-    [string]$Plan = 'payg',
-    [ValidateSet('cn', 'beijing', 'intl', 'singapore', 'sg')]
-    [string]$Region = 'cn',
-    [ValidateSet('max', 'pro', 'plus')]
-    [string]$ModelTier = 'max'
+    [ValidateSet('code', 'max', 'pro', 'plus', 'fast', 'flash', 'lite',
+                 'kimi', 'kimi-pro', 'kimi-k2',
+                 'deepseek', 'deepseek-flash',
+                 'glm', 'minimax')]
+    [string]$ModelTier = 'code'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -47,19 +46,19 @@ $ErrorActionPreference = 'Stop'
 # ---- Help ------------------------------------------------------------------
 
 if ($Help) {
-    Get-Content $PSCommandPath | Select-Object -Skip 1 -First 30 |
+    Get-Content $PSCommandPath | Select-Object -Skip 1 -First 27 |
         ForEach-Object { $_ -replace '^# ?', '' }
     exit 0
 }
 
 if ($Update) {
     $repo = Split-Path -Parent $PSCommandPath
-    Write-Host "qwclaude-desktop: pulling latest from $repo ..."
+    Write-Host "arkclaude-desktop: pulling latest from $repo ..."
     git -C $repo pull
     if ($LASTEXITCODE -eq 0) {
-        Write-Host 'qwclaude-desktop: updated.'
+        Write-Host 'arkclaude-desktop: updated.'
     } else {
-        Write-Error 'qwclaude-desktop: git pull failed. Check network or resolve conflicts manually.'
+        Write-Error 'arkclaude-desktop: git pull failed. Check network or resolve conflicts manually.'
         exit 1
     }
     exit 0
@@ -71,53 +70,62 @@ $ConfigDir  = Join-Path $env:LOCALAPPDATA 'Claude-3p\configLibrary'
 $StoreDir   = if (Get-ChildItem "$env:LOCALAPPDATA\Packages\Claude_*" -ErrorAction SilentlyContinue) {
                   Join-Path (Resolve-Path "$env:LOCALAPPDATA\Packages\Claude_*") 'LocalCache\Roaming\Claude-3p\configLibrary'
               } else { $null }
-$EntryName  = 'qwclaude-desktop'
+$EntryName  = 'arkclaude-desktop'
 $AuthScheme = 'bearer'
 
 $ClaudeExe = $null  # populated by Test-Preflight
 
-# ---- Resolve base URL, models, key variable, and label from the plan -------
+# ---- Resolve model from tier alias -----------------------------------------
 
-# Normalize plan/region aliases.
-switch ($Plan) {
-    { $_ -in 'token-plan', 'token', 'tp' } { $Plan = 'token-plan' }
-    'pay-as-you-go'                        { $Plan = 'payg' }
+switch ($ModelTier) {
+    { $_ -in 'code', 'max', 'pro' } {
+        $MainModel  = 'doubao-seed-2.0-code'
+        $FastModel  = 'doubao-seed-2.0-lite'
+        $ModelLabel = 'doubao-seed-2.0-code'
+    }
+    'plus' {
+        $MainModel  = 'doubao-seed-2.0-pro'
+        $FastModel  = 'doubao-seed-2.0-lite'
+        $ModelLabel = 'doubao-seed-2.0-pro'
+    }
+    { $_ -in 'fast', 'flash', 'lite' } {
+        $MainModel  = 'doubao-seed-2.0-lite'
+        $FastModel  = 'doubao-seed-2.0-lite'
+        $ModelLabel = 'doubao-seed-2.0-lite'
+    }
+    'kimi' {
+        $MainModel  = 'kimi-k2.7-code'
+        $FastModel  = 'doubao-seed-2.0-lite'
+        $ModelLabel = 'Kimi K2.7 Code'
+    }
+    { $_ -in 'kimi-pro', 'kimi-k2' } {
+        $MainModel  = 'kimi-k2.6'
+        $FastModel  = 'kimi-k2.6'
+        $ModelLabel = 'Kimi K2.6'
+    }
+    'deepseek' {
+        $MainModel  = 'deepseek-v4-pro'
+        $FastModel  = 'deepseek-v4-flash'
+        $ModelLabel = 'DeepSeek V4 Pro'
+    }
+    'deepseek-flash' {
+        $MainModel  = 'deepseek-v4-flash'
+        $FastModel  = 'deepseek-v4-flash'
+        $ModelLabel = 'DeepSeek V4 Flash'
+    }
+    'glm' {
+        $MainModel  = 'glm-5.2'
+        $FastModel  = 'glm-5.2'
+        $ModelLabel = 'GLM 5.2'
+    }
+    'minimax' {
+        $MainModel  = 'minimax-m2.7'
+        $FastModel  = 'minimax-m2.7'
+        $ModelLabel = 'MiniMax M2.7'
+    }
 }
-switch ($Region) {
-    { $_ -in 'intl', 'singapore', 'sg' } { $Region = 'intl' }
-    'beijing'                            { $Region = 'cn' }
-}
-if ($ModelTier -eq 'pro') { $ModelTier = 'max' }
 
-switch ($Plan) {
-    'token-plan' {
-        $BaseUrl    = 'https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic'
-        $MainModel  = if ($ModelTier -eq 'plus') { 'qwen3.7-plus' } else { 'qwen3.7-max' }
-        $FastModel  = 'qwen3.6-flash'
-        $KeyVar     = 'DASHSCOPE_TP_API_KEY'
-        $PlanLabel  = 'Token Plan'
-    }
-    'coding' {
-        # Coding Plan serves qwen3.7-plus as the recommended model.
-        $BaseUrl    = 'https://coding.dashscope.aliyuncs.com/apps/anthropic'
-        $MainModel  = 'qwen3.7-plus'
-        $FastModel  = 'qwen3.6-plus'
-        $KeyVar     = 'DASHSCOPE_CP_API_KEY'
-        $PlanLabel  = 'Coding Plan'
-    }
-    default {
-        $Plan = 'payg'
-        $BaseUrl = if ($Region -eq 'intl') {
-            'https://dashscope-intl.aliyuncs.com/apps/anthropic'
-        } else {
-            'https://dashscope.aliyuncs.com/apps/anthropic'
-        }
-        $MainModel  = if ($ModelTier -eq 'plus') { 'qwen3.7-plus' } else { 'qwen3.7-max' }
-        $FastModel  = 'qwen3.6-flash'
-        $KeyVar     = 'DASHSCOPE_API_KEY'
-        $PlanLabel  = 'pay-as-you-go'
-    }
-}
+$BaseUrl = if ($env:ARK_BASE_URL) { $env:ARK_BASE_URL } else { 'https://ark.cn-beijing.volces.com/api/coding' }
 
 # ---- JSON helpers ----------------------------------------------------------
 
@@ -133,9 +141,6 @@ function ConvertTo-JsonArrayString {
     '[' + (($arr | ForEach-Object { $_ | ConvertTo-Json -Depth $Depth -Compress }) -join ',') + ']'
 }
 
-# Claude Desktop's parser rejects entries with a trailing newline ("unknown
-# config id"), so we TrimEnd before writing. Writes via .NET to control the
-# encoding (UTF-8 no-BOM).
 function Write-TextAtomic {
     param([string]$Path, [string]$Text)
     $Text = $Text.TrimEnd("`r", "`n")
@@ -149,13 +154,13 @@ function Write-TextAtomic {
 function Test-Preflight {
     $isWin = if ($null -ne $IsWindows) { $IsWindows } else { $true }
     if (-not $isWin) {
-        Write-Error 'qwclaude-desktop.ps1: Windows only. Use ./qwclaude-desktop on macOS.'
+        Write-Error 'arkclaude-desktop.ps1: Windows only. Use ./arkclaude-desktop on macOS.'
         exit 1
     }
 
     if ($script:ClaudeExePath) {
         if (-not (Test-Path $script:ClaudeExePath)) {
-            Write-Error "qwclaude-desktop.ps1: Claude.exe not found at '$script:ClaudeExePath'"
+            Write-Error "arkclaude-desktop.ps1: Claude.exe not found at '$script:ClaudeExePath'"
             exit 1
         }
         $script:ClaudeExe = $script:ClaudeExePath
@@ -184,7 +189,7 @@ function Test-Preflight {
         $found = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
         if (-not $found) {
             Write-Error @"
-qwclaude-desktop.ps1: Claude Desktop not found.
+arkclaude-desktop.ps1: Claude Desktop not found.
 Install from https://claude.ai/download, or pass -ClaudeExePath to specify
 your custom install location. Looked in:
   $($candidates -join "`n  ")
@@ -204,28 +209,26 @@ your custom install location. Looked in:
         $needsEnable = $true
     }
     if ($needsEnable) {
-        Write-Host 'qwclaude-desktop.ps1: Enabling Developer Mode for Claude Desktop...'
+        Write-Host 'arkclaude-desktop.ps1: Enabling Developer Mode for Claude Desktop...'
         if (-not (Test-Path $devDir)) { New-Item -ItemType Directory -Path $devDir -Force | Out-Null }
         $devContent = '{ "allowDevTools": true }'
         [System.IO.File]::WriteAllText($devSettings, $devContent, [System.Text.UTF8Encoding]::new($false))
-        Write-Host 'qwclaude-desktop.ps1: Developer Mode enabled.'
+        Write-Host 'arkclaude-desktop.ps1: Developer Mode enabled.'
     }
 }
 
 # ---- API key resolution ----------------------------------------------------
 
 function Resolve-ApiKey {
-    param([string]$Name, [string]$Label)
-    $v = [Environment]::GetEnvironmentVariable($Name, 'Process')
-    if ($v) { return $v }
+    if ($env:ARK_API_KEY) { return $env:ARK_API_KEY }
     foreach ($scope in 'User', 'Machine') {
-        $v = [Environment]::GetEnvironmentVariable($Name, $scope)
+        $v = [Environment]::GetEnvironmentVariable('ARK_API_KEY', $scope)
         if ($v) { return $v }
     }
 
-    $secure = Read-Host "$Name (Bailian $Label) not set. Paste your key" -AsSecureString
+    $secure = Read-Host 'ARK_API_KEY not set. Paste your Volcengine Ark API Key' -AsSecureString
     if (-not $secure -or $secure.Length -eq 0) {
-        Write-Error "qwclaude-desktop.ps1: no $Name provided. Aborting."
+        Write-Error 'arkclaude-desktop.ps1: no ARK API Key provided. Aborting.'
         exit 1
     }
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
@@ -314,15 +317,15 @@ function Restart-Claude {
 # ---- Main ------------------------------------------------------------------
 
 Test-Preflight
-$apiKey = Resolve-ApiKey $KeyVar $PlanLabel
-Confirm-OrAbort -Action "configure Claude Desktop to use Bailian $PlanLabel ($BaseUrl, $MainModel) and restart it."
+$apiKey = Resolve-ApiKey
+Confirm-OrAbort -Action "configure Claude Desktop to use Ark Coding Plan ($BaseUrl, $ModelLabel) and restart it."
 $uuid = Update-MetaEntry
 Write-Entry -Uuid $uuid -ApiKey $apiKey
 Restart-Claude
 
 @"
 
-Done. Claude Desktop is restarting with Bailian $PlanLabel ($MainModel) as the inference backend.
+Done. Claude Desktop is restarting with Ark Coding Plan ($ModelLabel) as the inference backend.
 
 Heads up: Chat mode is unavailable while a third-party gateway is active.
 You'll see Cowork (3P) and Code modes only. To use Chat:
@@ -331,5 +334,5 @@ You'll see Cowork (3P) and Code modes only. To use Chat:
   - In Developer -> Configure Third-Party Inference, toggle off "Skip
     login-mode chooser" (default is off, so the chooser should appear)
 
-Re-run qwclaude-desktop.ps1 any time to refresh the gateway config.
+Re-run arkclaude-desktop.ps1 any time to refresh the gateway config.
 "@ | Write-Host

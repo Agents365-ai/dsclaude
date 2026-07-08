@@ -21,6 +21,7 @@
 #   dsclaude fast             # start on deepseek-v4-flash[1m] (cheaper / faster)
 #   dsclaude long             # request a 1M context window (DeepSeek V4 long-context)
 #   dsclaude long fast        # 1M + flash
+#   dsclaude effort max       # set reasoning effort (low|medium|high|xhigh|max)
 #   dsclaude update           # git pull latest from the dsclaude repo
 #   dsclaude --help           # any remaining flag is forwarded to claude
 #
@@ -99,8 +100,9 @@ fi
 PRO_MODEL="deepseek-v4-pro[1m]"
 FLASH_MODEL="deepseek-v4-flash[1m]"
 
-# Positional aliases: `long` (1M context) and `fast` (flash as main).
+# Positional aliases: `long` (1M context), `effort` (reasoning level), `fast` (flash as main).
 LONG_CTX=0
+EFFORT="${DSCLAUDE_EFFORT:-}"
 MAIN_MODEL="$PRO_MODEL"
 HAIKU_MODEL="$FLASH_MODEL"
 
@@ -112,6 +114,12 @@ while [ $# -gt 0 ]; do
     long)
       LONG_CTX=1
       shift
+      ;;
+    effort)
+      case "${2:-}" in
+        low|medium|high|xhigh|max) EFFORT="$2"; shift 2 ;;
+        *) echo "dsclaude: invalid effort level '${2:-}'. Use: low medium high xhigh max" >&2; exit 1 ;;
+      esac
       ;;
     fast|flash)
       MAIN_MODEL="$FLASH_MODEL"
@@ -154,7 +162,7 @@ export ANTHROPIC_DEFAULT_HAIKU_MODEL="$HAIKU_MODEL"
 export CLAUDE_CODE_SUBAGENT_MODEL="${FLASH_MODEL%'[1m]'}"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 export CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK=1
-export CLAUDE_CODE_EFFORT_LEVEL="${DSCLAUDE_EFFORT:-max}"
+export CLAUDE_CODE_EFFORT_LEVEL="${EFFORT:-max}"
 
 # Expose the other DeepSeek model inside the `/model` picker.
 export ANTHROPIC_CUSTOM_MODEL_OPTION="$OTHER_MODEL"
@@ -179,5 +187,6 @@ fi
 
 banner="🚀 Claude Code on DeepSeek  →  $MAIN_MODEL"
 [ -n "$CTX" ] && banner="$banner  |  ctx=$CTX"
+[ -n "$EFFORT" ] && banner="$banner  |  effort=$EFFORT"
 echo "$banner  (switch mid-session via /model)"
 exec claude "$@"

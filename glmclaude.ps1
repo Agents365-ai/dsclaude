@@ -1,19 +1,17 @@
 #!/usr/bin/env pwsh
-# mmclaude.ps1 — launch Claude Code on Xiaomi MiMo's Anthropic-compatible API (Windows port).
+# glmclaude.ps1 — launch Claude Code on ZhipuAI GLM's Anthropic-compatible API (Windows port).
 #
-# Windows companion to the macOS/Linux bash script `mmclaude`. Same env vars,
+# Windows companion to the macOS/Linux bash script `glmclaude`. Same env vars,
 # same model picker — different shell.
 #
-# Follows the official MiMo "Claude Code 配置" guide:
-#   - Pay-as-you-go : https://api.xiaomimimo.com/anthropic            (sk-... keys)
-#   - Token Plan    : https://token-plan-cn.xiaomimimo.com/anthropic  (tp-... keys)
+# Uses the official ZhipuAI Anthropic-compatible endpoint:
+#   - China (default): https://open.bigmodel.cn/api/anthropic
+#   - International:   https://api.z.ai/api/anthropic          (set $env:GLM_BASE_URL)
 #
-# Reads MIMO_API_KEY from the process env first, then User/Machine env vars.
-# The base URL is auto-detected from the key prefix (tp-* → Token Plan, else
-# pay-as-you-go); override with $env:MIMO_BASE_URL.
+# Reads GLM_API_KEY from the process env first, then User/Machine env vars.
 #
-# Quick start (from the mmclaude directory):
-#   pwsh -File .\mmclaude.ps1
+# Quick start (from the glmclaude directory):
+#   pwsh -File .\glmclaude.ps1
 #
 # Three invocation rules that matter on Windows:
 #   1. Use `pwsh`, not `powershell`. PowerShell 5.1 ships with Windows but its
@@ -27,36 +25,36 @@
 #
 # Launching from a shortcut, Run dialog, or another shell:
 #   Start-Process pwsh -ArgumentList '-NoExit', '-File',
-#     'C:\Users\<you>\Desktop\mmclaude\mmclaude.ps1'
+#     'C:\Users\<you>\Desktop\glmclaude\glmclaude.ps1'
 # (`-NoExit` keeps the window open if the launching context doesn't have one.)
 #
 # Optional — make it globally available (one-time, from this dir):
 #   $bin = "$env:USERPROFILE\bin"; New-Item -ItemType Directory -Force $bin | Out-Null
-#   Copy-Item .\mmclaude.ps1 $bin\mmclaude.ps1
-#   # then add $bin to PATH and run:  pwsh -File mmclaude.ps1
+#   Copy-Item .\glmclaude.ps1 $bin\glmclaude.ps1
+#   # then add $bin to PATH and run:  pwsh -File glmclaude.ps1
 #
 # Use:
-#   pwsh -File ./mmclaude.ps1                  # mimo-v2.5-pro (MiMo default)
-#   pwsh -File ./mmclaude.ps1 fast             # run the flash tier (mimo-v2.5) as main
-#   pwsh -File ./mmclaude.ps1 long             # request max context window
-#   pwsh -File ./mmclaude.ps1 effort max       # set effort (low|medium|high|xhigh|max)
-#   pwsh -File ./mmclaude.ps1 update           # git pull latest from this repo
-#   pwsh -File ./mmclaude.ps1 --help           # any remaining flag is forwarded to claude
+#   pwsh -File ./glmclaude.ps1                  # glm-5.2 (ZhipuAI default)
+#   pwsh -File ./glmclaude.ps1 fast             # run the flash tier (glm-4.7) as main
+#   pwsh -File ./glmclaude.ps1 long             # request max context window
+#   pwsh -File ./glmclaude.ps1 effort max       # set effort (low|medium|high|xhigh|max)
+#   pwsh -File ./glmclaude.ps1 update           # git pull latest from this repo
+#   pwsh -File ./glmclaude.ps1 --help           # any remaining flag is forwarded to claude
 #
 # Optional env overrides (take precedence over positional aliases):
-#   $env:MIMO_MODEL       = 'mimo-v2.5-pro'    # main model
-#   $env:MIMO_FLASH_MODEL = 'mimo-v2.5'        # flash / haiku / subagent tier
-#   $env:MIMO_BASE_URL    = 'https://.../anthropic'  # custom base URL
-#   $env:MIMO_CTX         = '1048576'          # max context tokens
-#   $env:MIMO_OUTPUT      = '8000'             # cap output tokens
-#   $env:MIMO_EFFORT      = 'max'              # CLAUDE_CODE_EFFORT_LEVEL
+#   $env:GLM_MODEL       = 'glm-5.2'            # main model
+#   $env:GLM_FLASH_MODEL = 'glm-4.7'            # flash / haiku / subagent tier
+#   $env:GLM_BASE_URL    = 'https://api.z.ai/api/anthropic'  # custom base URL
+#   $env:GLM_CTX         = '1048576'            # max context tokens
+#   $env:GLM_OUTPUT      = '8000'               # cap output tokens
+#   $env:GLM_EFFORT      = 'max'                # CLAUDE_CODE_EFFORT_LEVEL
 #
 # In-session switch:
-#   /model mimo-v2.5        # switch to the flash tier
-#   /model mimo-v2.5-pro    # switch back to the main model
+#   /model glm-4.7        # switch to the flash tier
+#   /model glm-5.2        # switch back to the main model
 #
 # Requires: PowerShell 7+ (`winget install Microsoft.PowerShell`), Claude Code
-# CLI on PATH (`npm i -g @anthropic-ai/claude-code`), MiMo API key.
+# CLI on PATH (`npm i -g @anthropic-ai/claude-code`), ZhipuAI GLM API key.
 
 [CmdletBinding()]
 param(
@@ -74,7 +72,7 @@ $ErrorActionPreference = 'Stop'
 # message rather than letting the user debug the silent-exit symptom.
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     Write-Error @"
-mmclaude.ps1: PowerShell 7+ required (you're on $($PSVersionTable.PSVersion)).
+glmclaude.ps1: PowerShell 7+ required (you're on $($PSVersionTable.PSVersion)).
 
 Windows PowerShell 5.1 cannot host claude's interactive UI — the first
 keystroke causes claude to exit. Install PowerShell 7 once:
@@ -83,21 +81,21 @@ keystroke causes claude to exit. Install PowerShell 7 once:
 
 Then re-run with:
 
-  pwsh -File .\mmclaude.ps1
+  pwsh -File .\glmclaude.ps1
 "@
     exit 1
 }
 
 # ---- Self-update -----------------------------------------------------------
 
-function Invoke-MmclaudeUpdate {
+function Invoke-GlmclaudeUpdate {
     $repo = $null
     $selfDir = Split-Path -Parent $PSCommandPath
     if (Test-Path (Join-Path $selfDir '.git')) {
         $repo = $selfDir
     }
-    if (-not $repo -and $env:MMCLAUDE_HOME) {
-        $repo = $env:MMCLAUDE_HOME
+    if (-not $repo -and $env:GLMCLAUDE_HOME) {
+        $repo = $env:GLMCLAUDE_HOME
     }
     if (-not $repo) {
         $candidate = Join-Path $env:USERPROFILE 'github\xxclaude'
@@ -105,35 +103,36 @@ function Invoke-MmclaudeUpdate {
     }
     if (-not $repo) {
         Write-Error @'
-mmclaude: cannot find the xxclaude repo for self-update.
-  Set $env:MMCLAUDE_HOME = 'C:\path\to\xxclaude'  or  cd into the repo and run  pwsh -File ./mmclaude.ps1 update
+glmclaude: cannot find the xxclaude repo for self-update.
+  Set $env:GLMCLAUDE_HOME = 'C:\path\to\xxclaude'  or  cd into the repo and run  pwsh -File ./glmclaude.ps1 update
 '@
         exit 1
     }
-    Write-Host "mmclaude: pulling latest from $repo ..."
+    Write-Host "glmclaude: pulling latest from $repo ..."
     git -C $repo pull
     if ($LASTEXITCODE -ne 0) {
-        Write-Error 'mmclaude: git pull failed. Check network or resolve conflicts manually.'
+        Write-Error 'glmclaude: git pull failed. Check network or resolve conflicts manually.'
         exit 1
     }
-    Write-Host 'mmclaude: updated.'
+    Write-Host 'glmclaude: updated.'
     exit 0
 }
 
 # ---- API key resolution ----------------------------------------------------
 
 function Resolve-ApiKey {
-    if ($env:MIMO_API_KEY) { return $env:MIMO_API_KEY }
+    if ($env:GLM_API_KEY) { return $env:GLM_API_KEY }
     foreach ($scope in 'User', 'Machine') {
-        $v = [Environment]::GetEnvironmentVariable('MIMO_API_KEY', $scope)
+        $v = [Environment]::GetEnvironmentVariable('GLM_API_KEY', $scope)
         if ($v) { return $v }
     }
     Write-Error @'
-MIMO_API_KEY not found.
+GLM_API_KEY not found.
   Set it persistently (User scope, takes effect in new shells):
-    setx MIMO_API_KEY "sk-xxxxxxxxxxxxxxxxxx"   # or tp-... for Token Plan
+    setx GLM_API_KEY "your_zhipu_api_key"
   Or for the current shell only:
-    $env:MIMO_API_KEY = 'sk-xxxxxxxxxxxxxxxxxx'
+    $env:GLM_API_KEY = 'your_zhipu_api_key'
+  Get your key at: https://open.bigmodel.cn/usercenter/apikeys
 '@
     exit 1
 }
@@ -142,7 +141,7 @@ MIMO_API_KEY not found.
 
 $WantFlash = $false
 $LongCtx   = $false
-$Effort    = if ($env:MIMO_EFFORT) { $env:MIMO_EFFORT } else { '' }
+$Effort    = if ($env:GLM_EFFORT) { $env:GLM_EFFORT } else { '' }
 
 $remaining = @()
 $rest = @($Rest)
@@ -150,12 +149,12 @@ $i = 0
 :argloop while ($i -lt $rest.Count) {
     $a = $rest[$i]
     switch -CaseSensitive ($a) {
-        'update' { Invoke-MmclaudeUpdate }
+        'update' { Invoke-GlmclaudeUpdate }
         'fast'   { $WantFlash = $true; $i++; break }
         'flash'  { $WantFlash = $true; $i++; break }
         'long'   { $LongCtx = $true; $i++; break }
         'effort' {
-            $i++; if ($i -lt $rest.Count) { $l=$rest[$i]; if ($l -in 'low','medium','high','xhigh','max'){$Effort=$l;$i++;break}else{Write-Error "mmclaude: invalid effort level '$l'. Use: low medium high xhigh max";exit 1}}else{Write-Error "mmclaude: 'effort' requires a level: low medium high xhigh max";exit 1}
+            $i++; if ($i -lt $rest.Count) { $l=$rest[$i]; if ($l -in 'low','medium','high','xhigh','max'){$Effort=$l;$i++;break}else{Write-Error "glmclaude: invalid effort level '$l'. Use: low medium high xhigh max";exit 1}}else{Write-Error "glmclaude: 'effort' requires a level: low medium high xhigh max";exit 1}
         }
         '--'     {
             $i++
@@ -171,33 +170,23 @@ $i = 0
 
 $apiKey = Resolve-ApiKey
 
-# Auto-detect the base URL from the key prefix; MIMO_BASE_URL always wins.
-$baseUrl = if ($env:MIMO_BASE_URL) {
-    $env:MIMO_BASE_URL
-} elseif ($apiKey -like 'tp-*') {
-    'https://token-plan-cn.xiaomimimo.com/anthropic'
-} else {
-    'https://api.xiaomimimo.com/anthropic'
-}
-
-$proModel   = if ($env:MIMO_MODEL)       { $env:MIMO_MODEL }       else { 'mimo-v2.5-pro' }
-$flashModel = if ($env:MIMO_FLASH_MODEL) { $env:MIMO_FLASH_MODEL } else { 'mimo-v2.5' }
+$baseUrl    = if ($env:GLM_BASE_URL)    { $env:GLM_BASE_URL }    else { 'https://open.bigmodel.cn/api/anthropic' }
+$proModel   = if ($env:GLM_MODEL)       { $env:GLM_MODEL }       else { 'glm-5.2' }
+$flashModel = if ($env:GLM_FLASH_MODEL) { $env:GLM_FLASH_MODEL } else { 'glm-4.7' }
 
 $mainModel = if ($WantFlash) { $flashModel } else { $proModel }
 
 # Pick the "other" model to surface in Claude Code's /model picker.
 if ($mainModel -eq $proModel) {
     $otherModel = $flashModel
-    $otherDesc  = 'MiMo v2.5 — fast / cheap haiku tier'
+    $otherDesc  = 'GLM 4.7 — fast / cheap tier'
 } else {
     $otherModel = $proModel
-    $otherDesc  = 'MiMo v2.5 Pro — full reasoning'
+    $otherDesc  = 'GLM 5.2 — full reasoning'
 }
 
 # ---- Export env for claude -------------------------------------------------
 
-# MiMo docs warn that lingering official Anthropic credentials shadow
-# ANTHROPIC_AUTH_TOKEN and make Claude Code hit api.anthropic.com instead.
 $env:ANTHROPIC_API_KEY = $null
 
 $env:ANTHROPIC_BASE_URL             = $baseUrl
@@ -209,7 +198,7 @@ $env:ANTHROPIC_DEFAULT_HAIKU_MODEL  = $flashModel
 # Subagents run on the cheaper flash tier.
 $env:CLAUDE_CODE_SUBAGENT_MODEL     = $flashModel
 
-# Expose the other MiMo model inside the /model picker (skip when identical).
+# Expose the other GLM model inside the /model picker (skip when identical).
 if ($otherModel -ne $mainModel) {
     $env:ANTHROPIC_CUSTOM_MODEL_OPTION             = $otherModel
     $env:ANTHROPIC_CUSTOM_MODEL_OPTION_NAME        = $otherModel
@@ -218,24 +207,26 @@ if ($otherModel -ne $mainModel) {
 
 # ---- Effort level ----------------------------------------------------------
 if ($Effort) { $env:CLAUDE_CODE_EFFORT_LEVEL = $Effort }
+
 # ---- Context window --------------------------------------------------------
-$ctx = if ($env:MIMO_CTX) { $env:MIMO_CTX } elseif ($LongCtx) { '1048576' } else { '' }
+$ctx = if ($env:GLM_CTX) { $env:GLM_CTX } elseif ($LongCtx) { '1048576' } else { '' }
 if ($ctx) { $env:CLAUDE_CODE_MAX_CONTEXT_TOKENS = $ctx; $env:DISABLE_COMPACT = '1' }
+
 # ---- Output cap ------------------------------------------------------------
-if ($env:MIMO_OUTPUT) { $env:CLAUDE_CODE_MAX_OUTPUT_TOKENS = $env:MIMO_OUTPUT }
+if ($env:GLM_OUTPUT) { $env:CLAUDE_CODE_MAX_OUTPUT_TOKENS = $env:GLM_OUTPUT }
 
 # ---- Launch ----------------------------------------------------------------
 
 if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
     Write-Error @'
-mmclaude: `claude` CLI not found on PATH.
+glmclaude: `claude` CLI not found on PATH.
   Install Claude Code:  npm install -g @anthropic-ai/claude-code
   Then re-run this script.
 '@
     exit 1
 }
 
-$banner = "🚀 Claude Code on MiMo  →  $mainModel  ($baseUrl)"
+$banner = "🚀 Claude Code on GLM  →  $mainModel  ($baseUrl)"
 if ($ctx)    { $banner += "  |  ctx=$ctx" }
 if ($Effort) { $banner += "  |  effort=$Effort" }
 if ($otherModel -ne $mainModel) { $banner += '  (switch mid-session via /model)' }

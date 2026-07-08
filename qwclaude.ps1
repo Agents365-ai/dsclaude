@@ -11,6 +11,11 @@
 #   - Coding Plan   : https://coding.dashscope.aliyuncs.com/apps/anthropic
 #   - Token Plan    : https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic
 #
+# Three model tiers within each plan:
+#   max   → qwen3.7-max    (flagship, full reasoning)
+#   plus  → qwen3.7-plus   (balanced, ~1/6 cost of max)
+#   flash → qwen3.6-flash  (lightweight, fast/cheap)
+#
 # Reads the plan-specific Bailian API key from the process env first, then
 # User/Machine env vars:
 #   - Pay-as-you-go : DASHSCOPE_API_KEY
@@ -42,11 +47,15 @@
 #
 # Use:
 #   pwsh -File ./qwclaude.ps1                  # pay-as-you-go, qwen3.7-max (Beijing)
-#   pwsh -File ./qwclaude.ps1 fast             # run the flash tier (qwen3.6-flash) as main
+#   pwsh -File ./qwclaude.ps1 plus             # pay-as-you-go, qwen3.7-plus
+#   pwsh -File ./qwclaude.ps1 fast             # qwen3.6-flash as the main model
 #   pwsh -File ./qwclaude.ps1 intl             # pay-as-you-go on the Singapore endpoint
-#   pwsh -File ./qwclaude.ps1 coding           # Coding Plan (qwen3.6-plus)
+#   pwsh -File ./qwclaude.ps1 coding           # Coding Plan (qwen3.7-plus)
 #   pwsh -File ./qwclaude.ps1 token            # Token Plan team edition (qwen3.7-max)
 #   pwsh -File ./qwclaude.ps1 coding fast      # combine plan + flash
+#   pwsh -File ./qwclaude.ps1 token plus       # Token Plan, qwen3.7-plus
+#   pwsh -File ./qwclaude.ps1 long              # request 1M context window
+#   pwsh -File ./qwclaude.ps1 effort max        # set effort (low|medium|high|xhigh|max)
 #   pwsh -File ./qwclaude.ps1 update           # git pull latest from this repo
 #   pwsh -File ./qwclaude.ps1 --help           # any remaining flag is forwarded to claude
 #
@@ -54,12 +63,17 @@
 #   $env:QWEN_PLAN       = 'coding'            # payg | coding | token-plan
 #   $env:QWEN_REGION     = 'intl'              # cn (Beijing) | intl (Singapore), payg only
 #   $env:QWEN_MODEL      = 'qwen3.7-max'       # main model
+#   $env:QWEN_PLUS_MODEL = 'qwen3.7-plus'      # plus tier model (overrides default)
 #   $env:QWEN_FLASH_MODEL= 'qwen3.6-flash'     # flash / haiku / subagent tier
 #   $env:QWEN_BASE_URL   = 'https://.../apps/anthropic'  # custom base URL
+#   $env:QWEN_CTX        = '1048576'           # max context tokens (1M with `long`)
+#   $env:QWEN_OUTPUT     = '8000'              # cap output tokens
+#   $env:QWEN_EFFORT     = 'max'               # CLAUDE_CODE_EFFORT_LEVEL
 #
 # In-session switch:
-#   /model qwen3.6-flash                       # switch to the flash tier
-#   /model qwen3.7-max                         # switch back to the main model
+#   /model qwen3.6-flash    # switch to the flash tier
+#   /model qwen3.7-plus     # switch to the plus tier
+#   /model qwen3.7-max      # switch to max
 #
 # Requires: PowerShell 7+ (`winget install Microsoft.PowerShell`), Claude Code
 # CLI on PATH (`npm i -g @anthropic-ai/claude-code`), Bailian API key.
@@ -148,9 +162,11 @@ $Name not found (needed for Bailian $PlanLabel).
 
 # ---- Arg parsing -----------------------------------------------------------
 
-$Plan      = if ($env:QWEN_PLAN)   { $env:QWEN_PLAN }   else { 'payg' }
-$Region    = if ($env:QWEN_REGION) { $env:QWEN_REGION } else { 'cn' }
-$WantFlash = $false
+$Plan       = if ($env:QWEN_PLAN)       { $env:QWEN_PLAN }       else { 'payg' }
+$Region     = if ($env:QWEN_REGION)     { $env:QWEN_REGION }     else { 'cn' }
+$ModelTier  = if ($env:QWEN_MODEL_TIER) { $env:QWEN_MODEL_TIER } else { 'max' }
+$LongCtx    = $false
+$Effort     = if ($env:QWEN_EFFORT)     { $env:QWEN_EFFORT }     else { '' }
 
 $remaining = @()
 $rest = @($Rest)
@@ -169,8 +185,27 @@ $i = 0
         'sg'         { $Region = 'intl';     $i++; break }
         'cn'         { $Region = 'cn';       $i++; break }
         'beijing'    { $Region = 'cn';       $i++; break }
-        'fast'       { $WantFlash = $true;   $i++; break }
-        'flash'      { $WantFlash = $true;   $i++; break }
+        'max'        { $ModelTier = 'max';   $i++; break }
+        'pro'        { $ModelTier = 'max';   $i++; break }
+        'plus'       { $ModelTier = 'plus';  $i++; break }
+        'fast'       { $ModelTier = 'flash'; $i++; break }
+        'flash'      { $ModelTier = 'flash'; $i++; break }
+        'long'       { $LongCtx = $true; $i++; break }
+        'effort'     {
+            $i++
+            if ($i -lt $rest.Count) {
+                $level = $rest[$i]
+                if ($level -in 'low','medium','high','xhigh','max') {
+                    $Effort = $level; $i++; break
+                } else {
+                    Write-Error "qwclaude: invalid effort level '$level'. Use: low medium high xhigh max"
+                    exit 1
+                }
+            } else {
+                Write-Error "qwclaude: 'effort' requires a level: low medium high xhigh max"
+                exit 1
+            }
+        }
         '--'         {
             $i++
             if ($i -lt $rest.Count) { $remaining += $rest[$i..($rest.Count - 1)] }
@@ -187,31 +222,34 @@ $i = 0
 
 switch ($Plan) {
     'token-plan' {
-        $baseUrlDefault   = 'https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic'
-        $proModelDefault  = 'qwen3.7-max'
-        $flashModelDefault= 'qwen3.6-flash'
-        $planLabel        = 'Token Plan'
-        $keyVar           = 'DASHSCOPE_TP_API_KEY'
+        $baseUrlDefault    = 'https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic'
+        $proModelDefault   = 'qwen3.7-max'
+        $plusModelDefault  = 'qwen3.7-plus'
+        $flashModelDefault = 'qwen3.6-flash'
+        $planLabel         = 'Token Plan'
+        $keyVar            = 'DASHSCOPE_TP_API_KEY'
     }
     'coding' {
-        # Coding Plan only serves qwen3.6-plus — no separate flash tier.
-        $baseUrlDefault   = 'https://coding.dashscope.aliyuncs.com/apps/anthropic'
-        $proModelDefault  = 'qwen3.6-plus'
-        $flashModelDefault= 'qwen3.6-plus'
-        $planLabel        = 'Coding Plan'
-        $keyVar           = 'DASHSCOPE_CP_API_KEY'
+        # Coding Plan serves qwen3.7-plus (recommended) and qwen3.6-plus.
+        $baseUrlDefault    = 'https://coding.dashscope.aliyuncs.com/apps/anthropic'
+        $proModelDefault   = 'qwen3.7-plus'
+        $plusModelDefault  = 'qwen3.7-plus'
+        $flashModelDefault = 'qwen3.6-plus'
+        $planLabel         = 'Coding Plan'
+        $keyVar            = 'DASHSCOPE_CP_API_KEY'
     }
     default {
         $Plan = 'payg'
-        if ($Region -eq 'intl') {
-            $baseUrlDefault = 'https://dashscope-intl.aliyuncs.com/apps/anthropic'
+        $baseUrlDefault = if ($Region -eq 'intl') {
+            'https://dashscope-intl.aliyuncs.com/apps/anthropic'
         } else {
-            $baseUrlDefault = 'https://dashscope.aliyuncs.com/apps/anthropic'
+            'https://dashscope.aliyuncs.com/apps/anthropic'
         }
-        $proModelDefault  = 'qwen3.7-max'
-        $flashModelDefault= 'qwen3.6-flash'
-        $planLabel        = 'pay-as-you-go'
-        $keyVar           = 'DASHSCOPE_API_KEY'
+        $proModelDefault   = 'qwen3.7-max'
+        $plusModelDefault  = 'qwen3.7-plus'
+        $flashModelDefault = 'qwen3.6-flash'
+        $planLabel         = 'pay-as-you-go'
+        $keyVar            = 'DASHSCOPE_API_KEY'
     }
 }
 
@@ -219,17 +257,29 @@ $apiKey = Resolve-ApiKey $keyVar $planLabel
 
 $baseUrl    = if ($env:QWEN_BASE_URL)    { $env:QWEN_BASE_URL }    else { $baseUrlDefault }
 $proModel   = if ($env:QWEN_MODEL)       { $env:QWEN_MODEL }       else { $proModelDefault }
+$plusModel  = if ($env:QWEN_PLUS_MODEL)  { $env:QWEN_PLUS_MODEL }  else { $plusModelDefault }
 $flashModel = if ($env:QWEN_FLASH_MODEL) { $env:QWEN_FLASH_MODEL } else { $flashModelDefault }
 
-$mainModel = if ($WantFlash) { $flashModel } else { $proModel }
+# Pick the main model from the chosen tier.
+$mainModel = switch ($ModelTier) {
+    'plus'  { $plusModel }
+    'flash' { $flashModel }
+    default { $proModel }
+}
 
 # Pick the "other" model to surface in Claude Code's /model picker.
+#   - On max  → expose plus (save cost)
+#   - On plus → expose max (upgrade to flagship)
+#   - On flash → expose max (biggest capability jump)
 if ($mainModel -eq $proModel) {
-    $otherModel = $flashModel
-    $otherDesc  = 'Qwen flash — fast / cheap haiku tier'
+    $otherModel = $plusModel
+    $otherDesc  = 'Qwen 3.7 Plus — balanced, ~1/6 cost of max'
+} elseif ($mainModel -eq $plusModel) {
+    $otherModel = $proModel
+    $otherDesc  = 'Qwen 3.7 Max — full reasoning'
 } else {
     $otherModel = $proModel
-    $otherDesc  = 'Qwen — full reasoning'
+    $otherDesc  = 'Qwen 3.7 Max — full reasoning'
 }
 
 # ---- Export env for claude -------------------------------------------------
@@ -257,6 +307,19 @@ if ($otherModel -ne $mainModel) {
     $env:ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION = $otherDesc
 }
 
+# ---- Effort level ----------------------------------------------------------
+if ($Effort) { $env:CLAUDE_CODE_EFFORT_LEVEL = $Effort }
+
+# ---- Context window --------------------------------------------------------
+$ctx = if ($env:QWEN_CTX) { $env:QWEN_CTX } elseif ($LongCtx) { '1048576' } else { '' }
+if ($ctx) {
+    $env:CLAUDE_CODE_MAX_CONTEXT_TOKENS = $ctx
+    $env:DISABLE_COMPACT = '1'
+}
+
+# ---- Output cap ------------------------------------------------------------
+if ($env:QWEN_OUTPUT) { $env:CLAUDE_CODE_MAX_OUTPUT_TOKENS = $env:QWEN_OUTPUT }
+
 # ---- Launch ----------------------------------------------------------------
 
 if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
@@ -269,6 +332,8 @@ qwclaude: `claude` CLI not found on PATH.
 }
 
 $banner = "🚀 Claude Code on Qwen (Bailian $planLabel)  →  $mainModel  ($baseUrl)"
+if ($ctx)    { $banner += "  |  ctx=$ctx" }
+if ($Effort) { $banner += "  |  effort=$Effort" }
 if ($otherModel -ne $mainModel) { $banner += '  (switch mid-session via /model)' }
 Write-Host $banner
 

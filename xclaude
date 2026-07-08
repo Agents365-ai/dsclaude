@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+# xclaude — auto-detect your API key and launch the right backend for Claude Code.
+#
+# Checks env vars and shell rc files for a known API key, then delegates to the
+# matching launcher. No need to remember which script name maps to which provider.
+#
+# Supported providers (checked in order):
+#   DEEPSEEK_API_KEY     → dsclaude     (DeepSeek)
+#   MIMO_API_KEY         → mmclaude     (Xiaomi MiMo)
+#   DASHSCOPE_API_KEY    → qwclaude     (Bailian Qwen, pay-as-you-go)
+#   DASHSCOPE_CP_API_KEY → qwclaude     (Bailian Qwen, Coding Plan)
+#   DASHSCOPE_TP_API_KEY → qwclaude     (Bailian Qwen, Token Plan)
+#   GLM_API_KEY          → glmclaude    (ZhipuAI GLM)
+#   KIMI_API_KEY         → kmclaude    (Moonshot Kimi)
+#   ARK_API_KEY          → arkclaude    (Volcengine Ark)
+#   LONGCAT_API_KEY      → lcclaude    (Meituan LongCat)
+#   MINIMAX_API_KEY      → mxclaude    (MiniMax)
+#   HY_API_KEY           → hyclaude    (Tencent TokenHub)
+#   SF_API_KEY           → sfclaude    (SiliconFlow)
+#
+# Quick start:
+#   chmod +x xclaude && ./xclaude
+#
+# All args are forwarded to the underlying launcher, so everything works:
+#   xclaude fast long effort max    # fast model, 1M context, max effort
+#   xclaude kimi                    # on TokenHub → kimi-k2.7-code; on Ark → same
+#   xclaude --help                  # forwarded to claude
+#
+# If multiple keys are set, the first found wins (with a notice).
+# Set XCLAUDE_PREFER=dsclaude|... to force a specific provider.
+
+set -euo pipefail
+
+# ---- Resolve the repo directory (for finding launcher scripts) ---------------
+find_repo() {
+  local self_dir
+  self_dir="$(cd "$(dirname "$0")" && pwd)"
+  if [ -d "$self_dir/.git" ]; then echo "$self_dir"; return 0; fi
+  if [ -n "${XCLAUDE_HOME:-}" ] && [ -d "$XCLAUDE_HOME/.git" ]; then echo "$XCLAUDE_HOME"; return 0; fi
+  if [ -d "$HOME/github/xxclaude/.git" ]; then echo "$HOME/github/xxclaude"; return 0; fi
+  echo ""
+}
+
+REPO="$(find_repo)"
+if [ -z "$REPO" ]; then
+  echo "xclaude: cannot find the xxclaude repo." >&2
+  echo "  Set XCLAUDE_HOME=/path/to/xxclaude  or  cd into the repo and run ./xclaude" >&2
+  exit 1
+fi
+
+# ---- Extract an API key from env or shell rc files --------------------------
+get_key() {
+  local var="$1"
+  # 1) Env var.
+  if [ -n "${!var:-}" ]; then printf '%s' "${!var}"; return 0; fi
+  # 2) Shell rc files.
+  local f candidate
+  for f in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+    [ -f "$f" ] || continue
+    candidate="$(grep -E "^[[:space:]]*(export[[:space:]]+)?${var}=" "$f" 2>/dev/null \
+      | tail -1 | sed -E "s/^[[:space:]]*(export[[:space:]]+)?${var}=//" \
+      | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/' || true)"
+    if [ -n "${candidate:-}" ]; then printf '%s' "$candidate"; return 0; fi
+  done
+  return 1
+}
+
+# ---- Provider registry (key_var → launcher_name, label) ---------------------
+# Order matters: first match wins when multiple keys are set.
+PROVIDERS=(
+  "DEEPSEEK_API_KEY:dsclaude:DeepSeek"
+  "MIMO_API_KEY:mmclaude:Xiaomi MiMo"
+  "DASHSCOPE_API_KEY:qwclaude:Bailian Qwen payg"
+  "DASHSCOPE_CP_API_KEY:qwclaude:Bailian Qwen CodingPlan"
+  "DASHSCOPE_TP_API_KEY:qwclaude:Bailian Qwen TokenPlan"
+  "GLM_API_KEY:glmclaude:ZhipuAI GLM"
+  "KIMI_API_KEY:kmclaude:Moonshot Kimi"
+  "ARK_API_KEY:arkclaude:Volcengine Ark"
+  "LONGCAT_API_KEY:lcclaude:Meituan LongCat"
+  "MINIMAX_API_KEY:mxclaude:MiniMax"
+  "HY_API_KEY:hyclaude:Tencent TokenHub"
+  "SF_API_KEY:sfclaude:SiliconFlow"
+)
+
+# ---- Override via XCLAUDE_PREFER -------------------------------------------
+if [ -n "${XCLAUDE_PREFER:-}" ]; then
+  FOUND=""
+  for entry in "${PROVIDERS[@]}"; do
+    IFS=":" read -r key_var launcher label <<< "$entry"
+    if [ "$launcher" = "$XCLAUDE_PREFER" ]; then
+      key="$(get_key "$key_var" || true)"
+      if [ -n "${key:-}" ]; then FOUND="$launcher:$key:$label"; break; fi
+    fi
+  done
+  if [ -n "$FOUND" ]; then
+    :
+  else
+    echo "xclaude: XCLAUDE_PREFER=$XCLAUDE_PREFER but that key is not set. Trying auto-detect..." >&2
+  fi
+fi
+
+# ---- Auto-detect -----------------------------------------------------------
+if [ -z "${FOUND:-}" ]; then
+  FOUND=""
+  for entry in "${PROVIDERS[@]}"; do
+    IFS=":" read -r key_var launcher label <<< "$entry"
+    key="$(get_key "$key_var" || true)"
+    if [ -n "${key:-}" ]; then
+      if [ -z "$FOUND" ]; then
+        FOUND="$launcher:$key:$label"
+      else
+        # Multiple keys detected — warn but stick with the first.
+        echo "xclaude: multiple API keys detected. Using first found ($label)." >&2
+        echo "  Set XCLAUDE_PREFER=<launcher> to choose a specific provider." >&2
+        break
+      fi
+    fi
+  done
+fi
+
+if [ -z "${FOUND:-}" ]; then
+  echo "❌ xclaude: no known API key found." >&2
+  echo "   Set one of these in your ~/.zshrc or environment:" >&2
+  echo "     export DEEPSEEK_API_KEY=sk-...     # DeepSeek" >&2
+  echo "     export GLM_API_KEY=...              # ZhipuAI GLM" >&2
+  echo "     export KIMI_API_KEY=sk-...          # Moonshot Kimi" >&2
+  echo "     export DASHSCOPE_API_KEY=sk-...     # Bailian Qwen" >&2
+  echo "     export ARK_API_KEY=...              # Volcengine Ark" >&2
+  echo "     export LONGCAT_API_KEY=lc-...       # Meituan LongCat" >&2
+  echo "     export MINIMAX_API_KEY=...          # MiniMax" >&2
+  echo "     export HY_API_KEY=...               # Tencent TokenHub" >&2
+  echo "     export SF_API_KEY=sk-...            # SiliconFlow" >&2
+  echo "     export MIMO_API_KEY=sk-...          # Xiaomi MiMo" >&2
+  echo "   Or use a specific launcher directly: dsclaude, mmclaude, qwclaude, ..." >&2
+  exit 1
+fi
+
+IFS=":" read -r LAUNCHER _ VALID_LABEL <<< "$FOUND"
+LAUNCHER_PATH="$REPO/$LAUNCHER"
+
+if [ ! -x "$LAUNCHER_PATH" ]; then
+  echo "xclaude: launcher not found or not executable at $LAUNCHER_PATH" >&2
+  exit 1
+fi
+
+# Forward ALL remaining args to the underlying launcher.
+# The launcher will handle its own arg parsing (fast, long, effort, model aliases, etc.).
+echo "xclaude: detected $VALID_LABEL  →  delegating to $LAUNCHER"
+exec "$LAUNCHER_PATH" "$@"
