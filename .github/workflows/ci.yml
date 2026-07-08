@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ShellCheck
+        run: |
+          errors=0
+          for script in *; do
+            [ -f "$script" ] || continue
+            # Detect bash scripts by their shebang
+            head -1 "$script" | grep -q '^#!/.*bash' || continue
+            echo "::group::$script"
+            shellcheck -x "$script" || errors=$((errors + 1))
+            echo "::endgroup::"
+          done
+          [ "$errors" -eq 0 ] || { echo "::error::$errors script(s) failed ShellCheck"; exit 1; }
+
+  pssa:
+    name: PSScriptAnalyzer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          $scripts = Get-ChildItem -Path . -Filter '*.ps1' | Where-Object { $_.Name -ne 'install.ps1' }
+          $errors = 0
+          foreach ($s in $scripts) {
+            Write-Host "::group::$($s.Name)"
+            $result = Invoke-ScriptAnalyzer -Path $s.FullName -Severity Error,Warning
+            if ($result) {
+              foreach ($r in $result) {
+                Write-Host "::warning file=$($s.Name),line=$($r.Line)::$($r.Message)"
+              }
+              $errors++
+            }
+            Write-Host "::endgroup::"
+          }
+          if ($errors -gt 0) { Write-Error "$errors script(s) have warnings or errors"; exit 1 }
+          Write-Host "All PS1 scripts passed."
