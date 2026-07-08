@@ -20,6 +20,8 @@
 # Use:
 #   mmclaude                  # start on mimo-v2.5-pro (MiMo default)
 #   mmclaude fast             # start on mimo-v2.5 (cheaper / faster flash tier)
+#   mmclaude long             # request max context window
+#   mmclaude effort max       # set reasoning effort (low|medium|high|xhigh|max)
 #   mmclaude update           # git pull latest from this repo
 #   mmclaude --help           # any remaining flag is forwarded to claude
 #
@@ -27,6 +29,9 @@
 #   MIMO_MODEL=mimo-v2.5-pro                 # main model
 #   MIMO_FLASH_MODEL=mimo-v2.5               # flash / haiku / subagent tier
 #   MIMO_BASE_URL=https://.../anthropic      # custom Anthropic-compatible base URL
+#   MIMO_CTX=1048576                         # max context tokens (defaults to 1M with `long`)
+#   MIMO_OUTPUT=8000                         # cap output tokens
+#   MIMO_EFFORT=max                          # CLAUDE_CODE_EFFORT_LEVEL
 #
 # In-session switch:
 #   /model mimo-v2.5        # switch to the flash tier
@@ -105,11 +110,21 @@ fi
 PRO_MODEL="${MIMO_MODEL:-mimo-v2.5-pro}"
 FLASH_MODEL="${MIMO_FLASH_MODEL:-mimo-v2.5}"
 
+LONG_CTX=0
+EFFORT="${MIMO_EFFORT:-}"
+
 # Positional alias: `fast`/`flash` runs the flash tier as the main model.
 MAIN_MODEL="$PRO_MODEL"
 while [ $# -gt 0 ]; do
   case "$1" in
     fast|flash) MAIN_MODEL="$FLASH_MODEL"; shift ;;
+    long) LONG_CTX=1; shift ;;
+    effort)
+      case "${2:-}" in
+        low|medium|high|xhigh|max) EFFORT="$2"; shift 2 ;;
+        *) echo "mmclaude: invalid effort level '${2:-}'. Use: low medium high xhigh max" >&2; exit 1 ;;
+      esac
+      ;;
     --) shift; break ;;
     *) break ;;
   esac
@@ -142,5 +157,20 @@ export ANTHROPIC_CUSTOM_MODEL_OPTION="$OTHER_MODEL"
 export ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="$OTHER_MODEL"
 export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="$OTHER_DESC"
 
-echo "🚀 Claude Code on MiMo  →  $MAIN_MODEL  ($BASE_URL)  (switch mid-session via /model)"
+# ---- Effort level ----------------------------------------------------------
+if [ -n "$EFFORT" ]; then export CLAUDE_CODE_EFFORT_LEVEL="$EFFORT"; fi
+
+# ---- Context window --------------------------------------------------------
+CTX="${MIMO_CTX:-}"
+if [ -z "$CTX" ] && [ "$LONG_CTX" = "1" ]; then CTX="1048576"; fi
+if [ -n "$CTX" ]; then export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$CTX"; export DISABLE_COMPACT=1; fi
+
+# ---- Output cap ------------------------------------------------------------
+if [ -n "${MIMO_OUTPUT:-}" ]; then export CLAUDE_CODE_MAX_OUTPUT_TOKENS="$MIMO_OUTPUT"; fi
+
+banner="🚀 Claude Code on MiMo  →  $MAIN_MODEL  ($BASE_URL)"
+[ -n "$CTX" ] && banner="$banner  |  ctx=$CTX"
+[ -n "$EFFORT" ] && banner="$banner  |  effort=$EFFORT"
+[ "$OTHER_MODEL" != "$MAIN_MODEL" ] && banner="$banner  (switch mid-session via /model)"
+echo "$banner"
 exec claude "$@"

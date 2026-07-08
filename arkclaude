@@ -1,0 +1,235 @@
+#!/usr/bin/env bash
+# arkclaude — launch Claude Code on Volcengine Ark's Coding Plan
+# (Anthropic-compatible endpoint).
+#
+# Volcengine Ark is a multi-model aggregator — one Coding Plan subscription
+# gives access to doubao, Kimi, DeepSeek, GLM, MiniMax, and more.
+#
+# Endpoint: https://ark.cn-beijing.volces.com/api/coding
+#
+# Reads ARK_API_KEY from the environment first, then falls back to
+# ~/.zshrc / ~/.bashrc / ~/.bash_profile / ~/.profile if not already exported.
+#
+# Quick start (no install needed):
+#   chmod +x arkclaude
+#   ./arkclaude
+#
+# Optional — make it globally available:
+#   sudo mv arkclaude /usr/local/bin/ && sudo chmod +x /usr/local/bin/arkclaude
+#
+# Use:
+#   arkclaude                  # doubao-seed-2.0-code (default code model)
+#   arkclaude plus             # doubao-seed-2.0-pro (balanced flagship)
+#   arkclaude fast             # doubao-seed-2.0-lite (cheap / fast)
+#   arkclaude kimi             # kimi-k2.7-code (Kimi code model)
+#   arkclaude deepseek         # deepseek-v4-pro
+#   arkclaude glm              # glm-5.2
+#   arkclaude minimax          # minimax-m2.7
+#   arkclaude long             # request max context window
+#   arkclaude effort max       # set reasoning effort (low|medium|high|xhigh|max)
+#   arkclaude update           # git pull latest from this repo
+#   arkclaude --help           # any remaining flag is forwarded to claude
+#
+# Optional env overrides:
+#   ARK_MODEL=doubao-seed-2.0-code             # main model (any model on ARK)
+#   ARK_FLASH_MODEL=doubao-seed-2.0-lite       # flash / haiku / subagent tier
+#   ARK_BASE_URL=https://.../api/coding        # custom Anthropic-compatible base URL
+#   ARK_CTX=1048576                            # max context tokens (defaults to 1M with `long`)
+#   ARK_OUTPUT=8000                            # cap output tokens
+#   ARK_EFFORT=max                             # CLAUDE_CODE_EFFORT_LEVEL
+#
+# In-session switch:
+#   /model doubao-seed-2.0-lite    # switch to the lite tier
+#   /model kimi-k2.7-code          # switch to Kimi
+#   /model doubao-seed-2.0-code    # switch back to doubao code
+#
+set -euo pipefail
+
+arkclaude_update() {
+  local repo=""
+  local self_dir
+  self_dir="$(cd "$(dirname "$0")" && pwd)"
+  if [ -d "$self_dir/.git" ]; then
+    repo="$self_dir"
+  fi
+  if [ -z "$repo" ] && [ -n "${ARKCLAUDE_HOME:-}" ]; then
+    repo="$ARKCLAUDE_HOME"
+  fi
+  if [ -z "$repo" ] && [ -d "$HOME/github/xxclaude/.git" ]; then
+    repo="$HOME/github/xxclaude"
+  fi
+  if [ -z "$repo" ]; then
+    echo "arkclaude: cannot find the xxclaude repo for self-update." >&2
+    echo "  Set ARKCLAUDE_HOME=/path/to/xxclaude  or  cd into the repo and run ./arkclaude update" >&2
+    exit 1
+  fi
+  echo "arkclaude: pulling latest from $repo ..."
+  git -C "$repo" pull && echo "arkclaude: updated." || {
+    echo "arkclaude: git pull failed. Check network or resolve conflicts manually." >&2
+    exit 1
+  }
+  exit 0
+}
+
+extract_key_from_file() {
+  local file="$1"
+  [ -f "$file" ] || return 1
+  grep -E '^[[:space:]]*(export[[:space:]]+)?ARK_API_KEY=' "$file" \
+    | tail -n1 \
+    | sed -E 's/^[[:space:]]*(export[[:space:]]+)?ARK_API_KEY=//' \
+    | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'
+}
+
+# Handle the update subcommand before the API-key check so it works key-less.
+if [ $# -gt 0 ] && [ "$1" = "update" ]; then
+  arkclaude_update
+fi
+
+API_KEY="${ARK_API_KEY:-}"
+if [ -z "$API_KEY" ]; then
+  for f in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+    candidate="$(extract_key_from_file "$f" || true)"
+    if [ -n "${candidate:-}" ]; then
+      API_KEY="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ -z "$API_KEY" ]; then
+  echo "❌ ARK_API_KEY not found." >&2
+  echo "   Add one line to ~/.zshrc or ~/.bashrc:" >&2
+  echo "     export ARK_API_KEY=your_ark_api_key" >&2
+  echo "   Get your key at: https://console.volcengine.com/ark" >&2
+  exit 1
+fi
+
+BASE_URL="${ARK_BASE_URL:-https://ark.cn-beijing.volces.com/api/coding}"
+
+# Default model lineup.
+PRO_MODEL="${ARK_MODEL:-doubao-seed-2.0-code}"
+PLUS_MODEL="${ARK_PLUS_MODEL:-doubao-seed-2.0-pro}"
+FLASH_MODEL="${ARK_FLASH_MODEL:-doubao-seed-2.0-lite}"
+
+LONG_CTX=0
+EFFORT="${ARK_EFFORT:-}"
+
+# Model aliases for quick switching (translate shorthand → full model name).
+MAIN_MODEL=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    # ---- Tier aliases ----
+    max|pro|code)   MAIN_MODEL="$PRO_MODEL"; shift ;;
+    plus)           MAIN_MODEL="$PLUS_MODEL"; shift ;;
+    fast|flash|lite) MAIN_MODEL="$FLASH_MODEL"; shift ;;
+    # ---- Provider aliases ----
+    kimi)           MAIN_MODEL="kimi-k2.7-code"; shift ;;
+    kimi-pro|kimi-k2) MAIN_MODEL="kimi-k2.6"; shift ;;
+    deepseek)       MAIN_MODEL="deepseek-v4-pro"; shift ;;
+    deepseek-flash) MAIN_MODEL="deepseek-v4-flash"; shift ;;
+    glm)            MAIN_MODEL="glm-5.2"; shift ;;
+    minimax)        MAIN_MODEL="minimax-m2.7"; shift ;;
+    # ---- Context & effort ----
+    long) LONG_CTX=1; shift ;;
+    effort)
+      case "${2:-}" in
+        low|medium|high|xhigh|max) EFFORT="$2"; shift 2 ;;
+        *) echo "arkclaude: invalid effort level '${2:-}'. Use: low medium high xhigh max" >&2; exit 1 ;;
+      esac
+      ;;
+    # ---- Other ----
+    --) shift; break ;;
+    *)  break ;;
+  esac
+done
+
+# Default to pro if no alias matched.
+if [ -z "$MAIN_MODEL" ]; then
+  MAIN_MODEL="$PRO_MODEL"
+fi
+
+# ---- Surface another model in the /model picker ----
+# Pick a smart alternate based on which model family the user chose.
+case "$MAIN_MODEL" in
+  "$PRO_MODEL")
+    OTHER_MODEL="$PLUS_MODEL"
+    OTHER_DESC="Doubao Seed 2.0 Pro — balanced flagship"
+    ;;
+  "$PLUS_MODEL")
+    OTHER_MODEL="$PRO_MODEL"
+    OTHER_DESC="Doubao Seed 2.0 Code — code specialist"
+    ;;
+  "$FLASH_MODEL")
+    OTHER_MODEL="$PRO_MODEL"
+    OTHER_DESC="Doubao Seed 2.0 Code — code specialist"
+    ;;
+  kimi-k2.7-code)
+    OTHER_MODEL="kimi-k2.6"
+    OTHER_DESC="Kimi K2.6 — full reasoning"
+    ;;
+  kimi-k2.6)
+    OTHER_MODEL="kimi-k2.7-code"
+    OTHER_DESC="Kimi K2.7 Code — code specialist"
+    ;;
+  deepseek-v4-pro)
+    OTHER_MODEL="deepseek-v4-flash"
+    OTHER_DESC="DeepSeek V4 Flash — fast tier"
+    ;;
+  deepseek-v4-flash)
+    OTHER_MODEL="deepseek-v4-pro"
+    OTHER_DESC="DeepSeek V4 Pro — full reasoning"
+    ;;
+  *)
+    # Unknown/custom model — expose doubao code as a safe fallback.
+    OTHER_MODEL="$PRO_MODEL"
+    OTHER_DESC="Doubao Seed 2.0 Code — code specialist"
+    ;;
+esac
+
+# Clear lingering official Anthropic credentials before launching.
+unset ANTHROPIC_API_KEY 2>/dev/null || true
+
+export ANTHROPIC_BASE_URL="$BASE_URL"
+export ANTHROPIC_AUTH_TOKEN="$API_KEY"
+export ANTHROPIC_MODEL="$MAIN_MODEL"
+export ANTHROPIC_DEFAULT_OPUS_MODEL="$MAIN_MODEL"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="$MAIN_MODEL"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="$FLASH_MODEL"
+# Subagents run on the cheapest tier.
+export CLAUDE_CODE_SUBAGENT_MODEL="$FLASH_MODEL"
+# Keep all traffic on Ark; avoids the api.anthropic.com connection error.
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+
+# Expose the alternate model in the /model picker.
+if [ "$OTHER_MODEL" != "$MAIN_MODEL" ]; then
+  export ANTHROPIC_CUSTOM_MODEL_OPTION="$OTHER_MODEL"
+  export ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="$OTHER_MODEL"
+  export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="$OTHER_DESC"
+fi
+
+# ---- Effort level ----------------------------------------------------------
+if [ -n "$EFFORT" ]; then
+  export CLAUDE_CODE_EFFORT_LEVEL="$EFFORT"
+fi
+
+# ---- Context window --------------------------------------------------------
+CTX="${ARK_CTX:-}"
+if [ -z "$CTX" ] && [ "$LONG_CTX" = "1" ]; then
+  CTX="1048576"
+fi
+if [ -n "$CTX" ]; then
+  export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$CTX"
+  export DISABLE_COMPACT=1
+fi
+
+# ---- Output cap ------------------------------------------------------------
+if [ -n "${ARK_OUTPUT:-}" ]; then
+  export CLAUDE_CODE_MAX_OUTPUT_TOKENS="$ARK_OUTPUT"
+fi
+
+banner="🚀 Claude Code on Ark  →  $MAIN_MODEL  ($BASE_URL)"
+[ -n "$CTX" ] && banner="$banner  |  ctx=$CTX"
+[ -n "$EFFORT" ] && banner="$banner  |  effort=$EFFORT"
+[ "$OTHER_MODEL" != "$MAIN_MODEL" ] && banner="$banner  (switch mid-session via /model)"
+echo "$banner"
+exec claude "$@"

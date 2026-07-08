@@ -1,19 +1,16 @@
 #!/usr/bin/env pwsh
-# mmclaude.ps1 — launch Claude Code on Xiaomi MiMo's Anthropic-compatible API (Windows port).
+# kmclaude.ps1 — launch Claude Code on Moonshot AI Kimi's Anthropic-compatible API (Windows port).
 #
-# Windows companion to the macOS/Linux bash script `mmclaude`. Same env vars,
+# Windows companion to the macOS/Linux bash script `kmclaude`. Same env vars,
 # same model picker — different shell.
 #
-# Follows the official MiMo "Claude Code 配置" guide:
-#   - Pay-as-you-go : https://api.xiaomimimo.com/anthropic            (sk-... keys)
-#   - Token Plan    : https://token-plan-cn.xiaomimimo.com/anthropic  (tp-... keys)
+# Uses the official Kimi Anthropic-compatible endpoint:
+#   https://api.moonshot.cn/anthropic
 #
-# Reads MIMO_API_KEY from the process env first, then User/Machine env vars.
-# The base URL is auto-detected from the key prefix (tp-* → Token Plan, else
-# pay-as-you-go); override with $env:MIMO_BASE_URL.
+# Reads KIMI_API_KEY from the process env first, then User/Machine env vars.
 #
-# Quick start (from the mmclaude directory):
-#   pwsh -File .\mmclaude.ps1
+# Quick start (from the kmclaude directory):
+#   pwsh -File .\kmclaude.ps1
 #
 # Three invocation rules that matter on Windows:
 #   1. Use `pwsh`, not `powershell`. PowerShell 5.1 ships with Windows but its
@@ -27,36 +24,36 @@
 #
 # Launching from a shortcut, Run dialog, or another shell:
 #   Start-Process pwsh -ArgumentList '-NoExit', '-File',
-#     'C:\Users\<you>\Desktop\mmclaude\mmclaude.ps1'
+#     'C:\Users\<you>\Desktop\kmclaude\kmclaude.ps1'
 # (`-NoExit` keeps the window open if the launching context doesn't have one.)
 #
 # Optional — make it globally available (one-time, from this dir):
 #   $bin = "$env:USERPROFILE\bin"; New-Item -ItemType Directory -Force $bin | Out-Null
-#   Copy-Item .\mmclaude.ps1 $bin\mmclaude.ps1
-#   # then add $bin to PATH and run:  pwsh -File mmclaude.ps1
+#   Copy-Item .\kmclaude.ps1 $bin\kmclaude.ps1
+#   # then add $bin to PATH and run:  pwsh -File kmclaude.ps1
 #
 # Use:
-#   pwsh -File ./mmclaude.ps1                  # mimo-v2.5-pro (MiMo default)
-#   pwsh -File ./mmclaude.ps1 fast             # run the flash tier (mimo-v2.5) as main
-#   pwsh -File ./mmclaude.ps1 long             # request max context window
-#   pwsh -File ./mmclaude.ps1 effort max       # set effort (low|medium|high|xhigh|max)
-#   pwsh -File ./mmclaude.ps1 update           # git pull latest from this repo
-#   pwsh -File ./mmclaude.ps1 --help           # any remaining flag is forwarded to claude
+#   pwsh -File ./kmclaude.ps1                  # kimi-k2.6 (Kimi flagship)
+#   pwsh -File ./kmclaude.ps1 fast             # run the flash tier (kimi-k2.5) as main
+#   pwsh -File ./kmclaude.ps1 long             # request max context window
+#   pwsh -File ./kmclaude.ps1 effort max       # set effort (low|medium|high|xhigh|max)
+#   pwsh -File ./kmclaude.ps1 update           # git pull latest from this repo
+#   pwsh -File ./kmclaude.ps1 --help           # any remaining flag is forwarded to claude
 #
 # Optional env overrides (take precedence over positional aliases):
-#   $env:MIMO_MODEL       = 'mimo-v2.5-pro'    # main model
-#   $env:MIMO_FLASH_MODEL = 'mimo-v2.5'        # flash / haiku / subagent tier
-#   $env:MIMO_BASE_URL    = 'https://.../anthropic'  # custom base URL
-#   $env:MIMO_CTX         = '1048576'          # max context tokens
-#   $env:MIMO_OUTPUT      = '8000'             # cap output tokens
-#   $env:MIMO_EFFORT      = 'max'              # CLAUDE_CODE_EFFORT_LEVEL
+#   $env:KIMI_MODEL       = 'kimi-k2.6'        # main model
+#   $env:KIMI_FLASH_MODEL = 'kimi-k2.5'        # flash / haiku / subagent tier
+#   $env:KIMI_BASE_URL    = 'https://.../anthropic'  # custom base URL
+#   $env:KIMI_CTX         = '1048576'          # max context tokens
+#   $env:KIMI_OUTPUT      = '8000'             # cap output tokens
+#   $env:KIMI_EFFORT      = 'max'              # CLAUDE_CODE_EFFORT_LEVEL
 #
 # In-session switch:
-#   /model mimo-v2.5        # switch to the flash tier
-#   /model mimo-v2.5-pro    # switch back to the main model
+#   /model kimi-k2.5        # switch to the flash tier
+#   /model kimi-k2.6        # switch back to the main model
 #
 # Requires: PowerShell 7+ (`winget install Microsoft.PowerShell`), Claude Code
-# CLI on PATH (`npm i -g @anthropic-ai/claude-code`), MiMo API key.
+# CLI on PATH (`npm i -g @anthropic-ai/claude-code`), Moonshot Kimi API key.
 
 [CmdletBinding()]
 param(
@@ -74,7 +71,7 @@ $ErrorActionPreference = 'Stop'
 # message rather than letting the user debug the silent-exit symptom.
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     Write-Error @"
-mmclaude.ps1: PowerShell 7+ required (you're on $($PSVersionTable.PSVersion)).
+kmclaude.ps1: PowerShell 7+ required (you're on $($PSVersionTable.PSVersion)).
 
 Windows PowerShell 5.1 cannot host claude's interactive UI — the first
 keystroke causes claude to exit. Install PowerShell 7 once:
@@ -83,21 +80,21 @@ keystroke causes claude to exit. Install PowerShell 7 once:
 
 Then re-run with:
 
-  pwsh -File .\mmclaude.ps1
+  pwsh -File .\kmclaude.ps1
 "@
     exit 1
 }
 
 # ---- Self-update -----------------------------------------------------------
 
-function Invoke-MmclaudeUpdate {
+function Invoke-KmclaudeUpdate {
     $repo = $null
     $selfDir = Split-Path -Parent $PSCommandPath
     if (Test-Path (Join-Path $selfDir '.git')) {
         $repo = $selfDir
     }
-    if (-not $repo -and $env:MMCLAUDE_HOME) {
-        $repo = $env:MMCLAUDE_HOME
+    if (-not $repo -and $env:KMCLAUDE_HOME) {
+        $repo = $env:KMCLAUDE_HOME
     }
     if (-not $repo) {
         $candidate = Join-Path $env:USERPROFILE 'github\xxclaude'
@@ -105,35 +102,36 @@ function Invoke-MmclaudeUpdate {
     }
     if (-not $repo) {
         Write-Error @'
-mmclaude: cannot find the xxclaude repo for self-update.
-  Set $env:MMCLAUDE_HOME = 'C:\path\to\xxclaude'  or  cd into the repo and run  pwsh -File ./mmclaude.ps1 update
+kmclaude: cannot find the xxclaude repo for self-update.
+  Set $env:KMCLAUDE_HOME = 'C:\path\to\xxclaude'  or  cd into the repo and run  pwsh -File ./kmclaude.ps1 update
 '@
         exit 1
     }
-    Write-Host "mmclaude: pulling latest from $repo ..."
+    Write-Host "kmclaude: pulling latest from $repo ..."
     git -C $repo pull
     if ($LASTEXITCODE -ne 0) {
-        Write-Error 'mmclaude: git pull failed. Check network or resolve conflicts manually.'
+        Write-Error 'kmclaude: git pull failed. Check network or resolve conflicts manually.'
         exit 1
     }
-    Write-Host 'mmclaude: updated.'
+    Write-Host 'kmclaude: updated.'
     exit 0
 }
 
 # ---- API key resolution ----------------------------------------------------
 
 function Resolve-ApiKey {
-    if ($env:MIMO_API_KEY) { return $env:MIMO_API_KEY }
+    if ($env:KIMI_API_KEY) { return $env:KIMI_API_KEY }
     foreach ($scope in 'User', 'Machine') {
-        $v = [Environment]::GetEnvironmentVariable('MIMO_API_KEY', $scope)
+        $v = [Environment]::GetEnvironmentVariable('KIMI_API_KEY', $scope)
         if ($v) { return $v }
     }
     Write-Error @'
-MIMO_API_KEY not found.
+KIMI_API_KEY not found.
   Set it persistently (User scope, takes effect in new shells):
-    setx MIMO_API_KEY "sk-xxxxxxxxxxxxxxxxxx"   # or tp-... for Token Plan
+    setx KIMI_API_KEY "sk-xxxxxxxxxxxxxxxxxx"
   Or for the current shell only:
-    $env:MIMO_API_KEY = 'sk-xxxxxxxxxxxxxxxxxx'
+    $env:KIMI_API_KEY = 'sk-xxxxxxxxxxxxxxxxxx'
+  Get your key at: https://platform.moonshot.cn/console/api-keys
 '@
     exit 1
 }
@@ -142,7 +140,7 @@ MIMO_API_KEY not found.
 
 $WantFlash = $false
 $LongCtx   = $false
-$Effort    = if ($env:MIMO_EFFORT) { $env:MIMO_EFFORT } else { '' }
+$Effort    = if ($env:KIMI_EFFORT) { $env:KIMI_EFFORT } else { '' }
 
 $remaining = @()
 $rest = @($Rest)
@@ -150,12 +148,17 @@ $i = 0
 :argloop while ($i -lt $rest.Count) {
     $a = $rest[$i]
     switch -CaseSensitive ($a) {
-        'update' { Invoke-MmclaudeUpdate }
+        'update' { Invoke-KmclaudeUpdate }
         'fast'   { $WantFlash = $true; $i++; break }
         'flash'  { $WantFlash = $true; $i++; break }
         'long'   { $LongCtx = $true; $i++; break }
         'effort' {
-            $i++; if ($i -lt $rest.Count) { $l=$rest[$i]; if ($l -in 'low','medium','high','xhigh','max'){$Effort=$l;$i++;break}else{Write-Error "mmclaude: invalid effort level '$l'. Use: low medium high xhigh max";exit 1}}else{Write-Error "mmclaude: 'effort' requires a level: low medium high xhigh max";exit 1}
+            $i++
+            if ($i -lt $rest.Count) {
+                $level = $rest[$i]
+                if ($level -in 'low','medium','high','xhigh','max') { $Effort = $level; $i++; break }
+                else { Write-Error "kmclaude: invalid effort level '$level'. Use: low medium high xhigh max"; exit 1 }
+            } else { Write-Error "kmclaude: 'effort' requires a level: low medium high xhigh max"; exit 1 }
         }
         '--'     {
             $i++
@@ -171,33 +174,23 @@ $i = 0
 
 $apiKey = Resolve-ApiKey
 
-# Auto-detect the base URL from the key prefix; MIMO_BASE_URL always wins.
-$baseUrl = if ($env:MIMO_BASE_URL) {
-    $env:MIMO_BASE_URL
-} elseif ($apiKey -like 'tp-*') {
-    'https://token-plan-cn.xiaomimimo.com/anthropic'
-} else {
-    'https://api.xiaomimimo.com/anthropic'
-}
-
-$proModel   = if ($env:MIMO_MODEL)       { $env:MIMO_MODEL }       else { 'mimo-v2.5-pro' }
-$flashModel = if ($env:MIMO_FLASH_MODEL) { $env:MIMO_FLASH_MODEL } else { 'mimo-v2.5' }
+$baseUrl    = if ($env:KIMI_BASE_URL)    { $env:KIMI_BASE_URL }    else { 'https://api.moonshot.cn/anthropic' }
+$proModel   = if ($env:KIMI_MODEL)       { $env:KIMI_MODEL }       else { 'kimi-k2.6' }
+$flashModel = if ($env:KIMI_FLASH_MODEL) { $env:KIMI_FLASH_MODEL } else { 'kimi-k2.5' }
 
 $mainModel = if ($WantFlash) { $flashModel } else { $proModel }
 
 # Pick the "other" model to surface in Claude Code's /model picker.
 if ($mainModel -eq $proModel) {
     $otherModel = $flashModel
-    $otherDesc  = 'MiMo v2.5 — fast / cheap haiku tier'
+    $otherDesc  = 'Kimi K2.5 — fast / cheap tier'
 } else {
     $otherModel = $proModel
-    $otherDesc  = 'MiMo v2.5 Pro — full reasoning'
+    $otherDesc  = 'Kimi K2.6 — full reasoning'
 }
 
 # ---- Export env for claude -------------------------------------------------
 
-# MiMo docs warn that lingering official Anthropic credentials shadow
-# ANTHROPIC_AUTH_TOKEN and make Claude Code hit api.anthropic.com instead.
 $env:ANTHROPIC_API_KEY = $null
 
 $env:ANTHROPIC_BASE_URL             = $baseUrl
@@ -209,7 +202,7 @@ $env:ANTHROPIC_DEFAULT_HAIKU_MODEL  = $flashModel
 # Subagents run on the cheaper flash tier.
 $env:CLAUDE_CODE_SUBAGENT_MODEL     = $flashModel
 
-# Expose the other MiMo model inside the /model picker (skip when identical).
+# Expose the other Kimi model inside the /model picker (skip when identical).
 if ($otherModel -ne $mainModel) {
     $env:ANTHROPIC_CUSTOM_MODEL_OPTION             = $otherModel
     $env:ANTHROPIC_CUSTOM_MODEL_OPTION_NAME        = $otherModel
@@ -218,24 +211,26 @@ if ($otherModel -ne $mainModel) {
 
 # ---- Effort level ----------------------------------------------------------
 if ($Effort) { $env:CLAUDE_CODE_EFFORT_LEVEL = $Effort }
+
 # ---- Context window --------------------------------------------------------
-$ctx = if ($env:MIMO_CTX) { $env:MIMO_CTX } elseif ($LongCtx) { '1048576' } else { '' }
+$ctx = if ($env:KIMI_CTX) { $env:KIMI_CTX } elseif ($LongCtx) { '1048576' } else { '' }
 if ($ctx) { $env:CLAUDE_CODE_MAX_CONTEXT_TOKENS = $ctx; $env:DISABLE_COMPACT = '1' }
+
 # ---- Output cap ------------------------------------------------------------
-if ($env:MIMO_OUTPUT) { $env:CLAUDE_CODE_MAX_OUTPUT_TOKENS = $env:MIMO_OUTPUT }
+if ($env:KIMI_OUTPUT) { $env:CLAUDE_CODE_MAX_OUTPUT_TOKENS = $env:KIMI_OUTPUT }
 
 # ---- Launch ----------------------------------------------------------------
 
 if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
     Write-Error @'
-mmclaude: `claude` CLI not found on PATH.
+kmclaude: `claude` CLI not found on PATH.
   Install Claude Code:  npm install -g @anthropic-ai/claude-code
   Then re-run this script.
 '@
     exit 1
 }
 
-$banner = "🚀 Claude Code on MiMo  →  $mainModel  ($baseUrl)"
+$banner = "🚀 Claude Code on Kimi  →  $mainModel  ($baseUrl)"
 if ($ctx)    { $banner += "  |  ctx=$ctx" }
 if ($Effort) { $banner += "  |  effort=$Effort" }
 if ($otherModel -ne $mainModel) { $banner += '  (switch mid-session via /model)' }
