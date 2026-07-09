@@ -82,6 +82,75 @@ PROVIDERS=(
   "SF_API_KEY:sfclaude:SiliconFlow"
 )
 
+# ---- Subcommands: ls, menu -------------------------------------------------
+if [ $# -gt 0 ]; then
+  case "$1" in
+    ls|list)
+      printf "%-20s %-4s %-25s %s\n" "BACKEND" "KEY" "ENV_VAR" "LAUNCHER"
+      printf "%-20s %-4s %-25s %s\n" "-------" "---" "-------" "--------"
+      for entry in "${PROVIDERS[@]}"; do
+        IFS=":" read -r key_var launcher label <<< "$entry"
+        status="✗"
+        get_key "$key_var" >/dev/null 2>&1 && status="✓"
+        printf "%-20s %-4s %-25s %s\n" "$label" "$status" "$key_var" "$launcher"
+      done
+      echo ""
+      echo "Set any key above and run: xclaude"
+      exit 0
+      ;;
+    menu|pick)
+      echo "Select a backend (enter number):"
+      echo ""
+      i=1
+      choices=()
+      for entry in "${PROVIDERS[@]}"; do
+        IFS=":" read -r key_var launcher label <<< "$entry"
+        mark=" "; extra=""
+        if get_key "$key_var" >/dev/null 2>&1; then
+          mark="✓"; extra="  ← key set"
+        else
+          mark="✗"; extra="  (key not set)"
+        fi
+        printf "  %2d) [%s] %-30s%s\n" "$i" "$mark" "$label" "$extra"
+        choices+=("$launcher")
+        i=$((i+1))
+      done
+      echo ""
+      read -r -p "Choice [1-$((i-1))]: " choice
+      idx="${choice:-1}"
+      if [ "$idx" -ge 1 ] 2>/dev/null && [ "$idx" -lt "$i" ]; then
+        SELECTED="${choices[$((idx-1))]}"
+        LAUNCHER_PATH="$REPO/$SELECTED"
+        if [ -x "$LAUNCHER_PATH" ]; then
+          echo "xclaude: launching $SELECTED..."
+          shift
+          exec "$LAUNCHER_PATH" "$@"
+        else
+          echo "xclaude: launcher not found: $LAUNCHER_PATH" >&2; exit 1
+        fi
+      else
+        echo "xclaude: invalid choice." >&2; exit 1
+      fi
+      exit 0
+      ;;
+    help|--help|-h)
+      echo "xclaude — auto-detect API key and launch the right backend."
+      echo ""
+      echo "Usage:"
+      echo "  xclaude [args]              Auto-detect and launch"
+      echo "  xclaude ls                  List all backends and key status"
+      echo "  xclaude menu                Interactive backend picker"
+      echo "  xclaude <launcher_args>     All args forwarded to launcher"
+      echo "                              (fast, long, effort, model aliases...)"
+      echo ""
+      echo "Env:"
+      echo "  XCLAUDE_PREFER=<launcher>   Force a specific backend"
+      echo "  XCLAUDE_HOME=/path/to/repo  Repo location override"
+      exit 0
+      ;;
+  esac
+fi
+
 # ---- Override via XCLAUDE_PREFER -------------------------------------------
 if [ -n "${XCLAUDE_PREFER:-}" ]; then
   FOUND=""
