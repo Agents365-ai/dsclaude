@@ -5,6 +5,14 @@
 # config.toml pre-filled with provider blocks for every backend you can use.
 # The first detected key becomes the default provider.
 #
+# Codex only speaks the OpenAI Responses API (Chat Completions support was
+# removed in early 2026). Providers are wired accordingly:
+#   - Native Responses (direct):  dashscope, ark, longcat, minimax
+#   - Chat-only (via local adapter codex-adapter.mjs): deepseek, moonshot,
+#     zhipu, tokenhub, siliconflow
+# For adapter-backed providers, start the adapter before running codex:
+#   nohup node codex-adapter.mjs > ~/.codex/adapter.log 2>&1 &
+#
 # Usage:
 #   ./codex-setup.sh               # interactive: pick from detected keys
 #   ./codex-setup.sh --dry-run     # print the config, don't write it
@@ -31,25 +39,31 @@ get_key() {
   done; return 1
 }
 
-# Provider data: id label base_url key_var model need_noauth
+# Adapter port for chat-only providers (codex-adapter.mjs).
+ADAPTER_PORT="${CODEX_ADAPTER_PORT:-8317}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Provider data: id label base_url key_var model need_noauth mode
+# mode: responses = provider natively supports the OpenAI Responses API
+#       adapter   = chat-only; routed through the local codex-adapter.mjs
 # Separated by | for easy parsing.
 PROVIDERS_DATA=(
-  "deepseek|DeepSeek|https://api.deepseek.com/v1|DEEPSEEK_API_KEY|deepseek-chat|no"
-  "dashscope|Qwen (Bailian)|https://dashscope.aliyuncs.com/compatible-mode/v1|DASHSCOPE_API_KEY|qwen-plus|no"
-  "moonshot|Moonshot Kimi|https://api.moonshot.cn/v1|KIMI_API_KEY|kimi-k2.5|no"
-  "zhipu|ZhipuAI GLM|https://open.bigmodel.cn/api/paas/v4|GLM_API_KEY|glm-4-flash|yes"
-  "ark|Volcengine Ark|https://ark.cn-beijing.volces.com/api/v3|ARK_API_KEY|doubao-seed-2.0-code|yes"
-  "longcat|Meituan LongCat|https://api.longcat.chat/openai|LONGCAT_API_KEY|LongCat-2.0|yes"
-  "minimax|MiniMax|https://api.minimaxi.com/v1|MINIMAX_API_KEY|MiniMax-M3|yes"
-  "tokenhub|Tencent TokenHub|https://api.lkeap.cloud.tencent.com/v1|HY_API_KEY|hy3-preview|yes"
-  "siliconflow|SiliconFlow|https://api.siliconflow.cn/v1|SF_API_KEY|deepseek-ai/DeepSeek-V4-PRO|yes"
+  "deepseek|DeepSeek|http://127.0.0.1:${ADAPTER_PORT}/deepseek/v1|DEEPSEEK_API_KEY|deepseek-v4-pro|no|adapter"
+  "dashscope|Qwen (Bailian)|https://dashscope.aliyuncs.com/compatible-mode/v1|DASHSCOPE_API_KEY|qwen-plus|no|responses"
+  "moonshot|Moonshot Kimi|http://127.0.0.1:${ADAPTER_PORT}/moonshot/v1|KIMI_API_KEY|kimi-k2.5|no|adapter"
+  "zhipu|ZhipuAI GLM|http://127.0.0.1:${ADAPTER_PORT}/zhipu/v1|GLM_API_KEY|glm-5.2|yes|adapter"
+  "ark|Volcengine Ark|https://ark.cn-beijing.volces.com/api/v3|ARK_API_KEY|doubao-seed-2.0-code|yes|responses"
+  "longcat|Meituan LongCat|https://api.longcat.chat/openai/v1|LONGCAT_API_KEY|LongCat-2.0|yes|responses"
+  "minimax|MiniMax|https://api.minimaxi.com/v1|MINIMAX_API_KEY|MiniMax-M3|yes|responses"
+  "tokenhub|Tencent TokenHub|http://127.0.0.1:${ADAPTER_PORT}/tokenhub/v1|HY_API_KEY|hy3-preview|yes|adapter"
+  "siliconflow|SiliconFlow|http://127.0.0.1:${ADAPTER_PORT}/siliconflow/v1|SF_API_KEY|deepseek-ai/DeepSeek-V4-PRO|yes|adapter"
 )
 
 # Detect available providers.
 available_ids=()
 available_labels=()
 for entry in "${PROVIDERS_DATA[@]}"; do
-  IFS='|' read -r pid plabel purl pkey pmodel pnoauth <<< "$entry"
+  IFS='|' read -r pid plabel purl pkey pmodel pnoauth pmode <<< "$entry"
   k="$(get_key "$pkey" || true)"
   if [ -n "${k:-}" ]; then available_ids+=("$pid"); available_labels+=("$plabel"); fi
 done
@@ -83,7 +97,7 @@ fi
 
 # Find default model.
 DEFAULT_MODEL=""; for entry in "${PROVIDERS_DATA[@]}"; do
-  IFS='|' read -r pid plabel purl pkey pmodel pnoauth <<< "$entry"
+  IFS='|' read -r pid plabel purl pkey pmodel pnoauth pmode <<< "$entry"
   [ "$pid" = "$DEFAULT_ID" ] && { DEFAULT_MODEL="$pmodel"; break; }
 done
 
@@ -99,24 +113,46 @@ generate_toml() {
   echo ""
 
   for entry in "${PROVIDERS_DATA[@]}"; do
-    IFS='|' read -r pid plabel purl pkey pmodel pnoauth <<< "$entry"
+    IFS='|' read -r pid plabel purl pkey pmodel pnoauth pmode <<< "$entry"
     # Only include if available.
     found=0; for aid in "${available_ids[@]}"; do [ "$aid" = "$pid" ] && found=1; done
     [ "$found" = "0" ] && continue
 
     echo "# ---- $plabel ----"
+    if [ "$pmode" = "adapter" ]; then
+      echo "# Chat-only upstream: routed through the local codex-adapter.mjs proxy."
+      echo "# Start it first:  nohup node ${SCRIPT_DIR}/codex-adapter.mjs > ~/.codex/adapter.log 2>&1 &"
+    fi
     echo "[model_providers.$pid]"
     echo "name = \"$plabel\""
     echo "base_url = \"$purl\""
     echo "env_key = \"$pkey\""
-    echo "wire_api = \"chat\""
+    echo "wire_api = \"responses\""
     if [ "$pnoauth" = "yes" ]; then echo "requires_openai_auth = false"; fi
     echo ""
-    echo "[profiles.$pid]"
-    echo "model_provider = \"$pid\""
-    echo "model = \"$pmodel\""
-    echo ""
   done
+}
+
+# Modern Codex profiles live in separate files (~/.codex/<name>.config.toml);
+# the legacy [profiles.*] tables in config.toml are rejected by current Codex.
+write_profile_files() {
+  for entry in "${PROVIDERS_DATA[@]}"; do
+    IFS='|' read -r pid plabel purl pkey pmodel pnoauth pmode <<< "$entry"
+    found=0; for aid in "${available_ids[@]}"; do [ "$aid" = "$pid" ] && found=1; done
+    [ "$found" = "0" ] && continue
+    printf 'model = "%s"\nmodel_provider = "%s"\n' "$pmodel" "$pid" > "$HOME/.codex/$pid.config.toml"
+  done
+}
+
+# True if any available provider is adapter-backed.
+needs_adapter() {
+  for entry in "${PROVIDERS_DATA[@]}"; do
+    IFS='|' read -r pid plabel purl pkey pmodel pnoauth pmode <<< "$entry"
+    for aid in "${available_ids[@]}"; do
+      [ "$aid" = "$pid" ] && [ "$pmode" = "adapter" ] && return 0
+    done
+  done
+  return 1
 }
 
 if [ "$DRY_RUN" = "1" ]; then
@@ -129,8 +165,17 @@ else
     echo "Backed up existing config."
   fi
   generate_toml > "$CONFIG_PATH"
+  write_profile_files
   echo "✓ Wrote $CONFIG_PATH (default: $DEFAULT_LABEL)"
+  echo "✓ Wrote profile files: $(for id in "${available_ids[@]}"; do printf '%s.config.toml ' "$id"; done)"
   echo ""
   echo "Quick-switch profiles:"
   for id in "${available_ids[@]}"; do echo "  codex --profile $id"; done
+  if needs_adapter; then
+    echo ""
+    echo "⚠ Some of your providers are chat-only and need the local adapter."
+    echo "  Start it once (survives until reboot):"
+    echo "    nohup node ${SCRIPT_DIR}/codex-adapter.mjs > ~/.codex/adapter.log 2>&1 &"
+    echo "  Check:  curl http://127.0.0.1:${ADAPTER_PORT}/health"
+  fi
 fi
