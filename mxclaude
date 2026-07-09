@@ -42,56 +42,17 @@
 #
 set -euo pipefail
 
-mxclaude_update() {
-  local repo=""
-  local self_dir
-  self_dir="$(cd "$(dirname "$0")" && pwd)"
-  if [ -d "$self_dir/.git" ]; then
-    repo="$self_dir"
-  fi
-  if [ -z "$repo" ] && [ -n "${MXCLAUDE_HOME:-}" ]; then
-    repo="$MXCLAUDE_HOME"
-  fi
-  if [ -z "$repo" ] && [ -d "$HOME/github/xxclaude/.git" ]; then
-    repo="$HOME/github/xxclaude"
-  fi
-  if [ -z "$repo" ]; then
-    echo "mxclaude: cannot find the xxclaude repo for self-update." >&2
-    echo "  Set MXCLAUDE_HOME=/path/to/xxclaude  or  cd into the repo and run ./mxclaude update" >&2
-    exit 1
-  fi
-  echo "mxclaude: pulling latest from $repo ..."
-  git -C "$repo" pull && echo "mxclaude: updated." || {
-    echo "mxclaude: git pull failed. Check network or resolve conflicts manually." >&2
-    exit 1
-  }
-  exit 0
-}
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SELF_DIR/lib/common.sh"
 
-extract_key_from_file() {
-  local file="$1"
-  [ -f "$file" ] || return 1
-  grep -E '^[[:space:]]*(export[[:space:]]+)?MINIMAX_API_KEY=' "$file" \
-    | tail -n1 \
-    | sed -E 's/^[[:space:]]*(export[[:space:]]+)?MINIMAX_API_KEY=//' \
-    | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'
-}
+PRO_MODEL="${MINIMAX_MODEL:-MiniMax-M3}"
+FLASH_MODEL="${MINIMAX_FLASH_MODEL:-MiniMax-M2.5}"
 
 if [ $# -gt 0 ] && [ "$1" = "update" ]; then
-  mxclaude_update
+  do_update "mxclaude" "MXCLAUDE_HOME"
 fi
 
-API_KEY="${MINIMAX_API_KEY:-}"
-if [ -z "$API_KEY" ]; then
-  for f in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
-    candidate="$(extract_key_from_file "$f" || true)"
-    if [ -n "${candidate:-}" ]; then
-      API_KEY="$candidate"
-      break
-    fi
-  done
-fi
-
+API_KEY="$(resolve_api_key "MINIMAX_API_KEY")"
 if [ -z "$API_KEY" ]; then
   echo "❌ MINIMAX_API_KEY not found." >&2
   echo "   Add one line to ~/.zshrc or ~/.bashrc:" >&2
@@ -101,9 +62,6 @@ if [ -z "$API_KEY" ]; then
 fi
 
 BASE_URL="${MINIMAX_BASE_URL:-https://api.minimaxi.com/anthropic}"
-
-PRO_MODEL="${MINIMAX_MODEL:-MiniMax-M3}"
-FLASH_MODEL="${MINIMAX_FLASH_MODEL:-MiniMax-M2.5}"
 
 LONG_CTX=0
 EFFORT="${MINIMAX_EFFORT:-}"
@@ -132,36 +90,12 @@ else
   OTHER_DESC="MiniMax M3 — full reasoning"
 fi
 
-unset ANTHROPIC_API_KEY 2>/dev/null || true
-
-export ANTHROPIC_BASE_URL="$BASE_URL"
-export ANTHROPIC_AUTH_TOKEN="$API_KEY"
-export ANTHROPIC_MODEL="$MAIN_MODEL"
-export ANTHROPIC_DEFAULT_OPUS_MODEL="$MAIN_MODEL"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="$MAIN_MODEL"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="$FLASH_MODEL"
+export_anthropic_base
 export CLAUDE_CODE_SUBAGENT_MODEL="$FLASH_MODEL"
+set_custom_model "$OTHER_MODEL" "$MAIN_MODEL" "$OTHER_DESC"
 
-if [ "$OTHER_MODEL" != "$MAIN_MODEL" ]; then
-  export ANTHROPIC_CUSTOM_MODEL_OPTION="$OTHER_MODEL"
-  export ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="$OTHER_MODEL"
-  export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="$OTHER_DESC"
-fi
-
-# ---- Effort level ----------------------------------------------------------
-if [ -n "$EFFORT" ]; then export CLAUDE_CODE_EFFORT_LEVEL="$EFFORT"; fi
-
-# ---- Context window --------------------------------------------------------
 CTX="${MINIMAX_CTX:-}"
-if [ -z "$CTX" ] && [ "$LONG_CTX" = "1" ]; then CTX="1048576"; fi
-if [ -n "$CTX" ]; then export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$CTX"; export DISABLE_COMPACT=1; fi
+OUTPUT_CAP="${MINIMAX_OUTPUT:-}"
+apply_context_and_effort
 
-# ---- Output cap ------------------------------------------------------------
-if [ -n "${MINIMAX_OUTPUT:-}" ]; then export CLAUDE_CODE_MAX_OUTPUT_TOKENS="$MINIMAX_OUTPUT"; fi
-
-banner="🚀 Claude Code on MiniMax  →  $MAIN_MODEL  ($BASE_URL)"
-[ -n "$CTX" ] && banner="$banner  |  ctx=$CTX"
-[ -n "$EFFORT" ] && banner="$banner  |  effort=$EFFORT"
-[ "$OTHER_MODEL" != "$MAIN_MODEL" ] && banner="$banner  (switch mid-session via /model)"
-echo "$banner"
-exec claude "$@"
+show_banner_and_launch "MiniMax" "$@"

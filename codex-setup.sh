@@ -34,7 +34,7 @@ get_key() {
   local f candidate
   for f in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
     [ -f "$f" ] || continue
-    candidate="$(grep -E "^[[:space:]]*(export[[:space:]]+)?${var}=" "$f" 2>/dev/null|tail -1|sed -E "s/^[[:space:]]*(export[[:space:]]+)?${var}=//"|sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'||true)"
+    candidate="$(grep -v '^[[:space:]]*#' "$f" 2>/dev/null|grep -E "^[[:space:]]*(export[[:space:]]+)?${var}="|tail -1|sed -E "s/^[[:space:]]*(export[[:space:]]+)?${var}=//"|sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'||true)"
     if [ -n "${candidate:-}" ]; then printf '%s' "$candidate"; return 0; fi
   done; return 1
 }

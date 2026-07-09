@@ -21,7 +21,8 @@ PROMPT="${2:-Describe this image in detail. Focus on text content, UI elements, 
 if [[ -z "${DASHSCOPE_API_KEY:-}" ]]; then
   for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
     [[ -r "$rc" ]] || continue
-    found=$(grep -E '^[[:space:]]*export[[:space:]]+DASHSCOPE_API_KEY=' "$rc" 2>/dev/null \
+    found=$(grep -v '^[[:space:]]*#' "$rc" 2>/dev/null \
+      | grep -E '^[[:space:]]*export[[:space:]]+DASHSCOPE_API_KEY=' \
       | tail -1 \
       | sed -E 's/^[^=]*=//; s/^"(.*)"$/\1/; s/^'\''(.*)'\''$/\1/' \
       || true)

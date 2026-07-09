@@ -45,56 +45,18 @@
 #
 set -euo pipefail
 
-lcclaude_update() {
-  local repo=""
-  local self_dir
-  self_dir="$(cd "$(dirname "$0")" && pwd)"
-  if [ -d "$self_dir/.git" ]; then
-    repo="$self_dir"
-  fi
-  if [ -z "$repo" ] && [ -n "${LCCLAUDE_HOME:-}" ]; then
-    repo="$LCCLAUDE_HOME"
-  fi
-  if [ -z "$repo" ] && [ -d "$HOME/github/xxclaude/.git" ]; then
-    repo="$HOME/github/xxclaude"
-  fi
-  if [ -z "$repo" ]; then
-    echo "lcclaude: cannot find the xxclaude repo for self-update." >&2
-    echo "  Set LCCLAUDE_HOME=/path/to/xxclaude  or  cd into the repo and run ./lcclaude update" >&2
-    exit 1
-  fi
-  echo "lcclaude: pulling latest from $repo ..."
-  git -C "$repo" pull && echo "lcclaude: updated." || {
-    echo "lcclaude: git pull failed. Check network or resolve conflicts manually." >&2
-    exit 1
-  }
-  exit 0
-}
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SELF_DIR/lib/common.sh"
 
-extract_key_from_file() {
-  local file="$1"
-  [ -f "$file" ] || return 1
-  grep -E '^[[:space:]]*(export[[:space:]]+)?LONGCAT_API_KEY=' "$file" \
-    | tail -n1 \
-    | sed -E 's/^[[:space:]]*(export[[:space:]]+)?LONGCAT_API_KEY=//' \
-    | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'
-}
+PRO_MODEL="${LONGCAT_MODEL:-LongCat-2.0}"
+FLASH_MODEL="${LONGCAT_FLASH_MODEL:-LongCat-Flash-Chat}"
+THINK_MODEL="${LONGCAT_THINK_MODEL:-LongCat-Flash-Thinking}"
 
 if [ $# -gt 0 ] && [ "$1" = "update" ]; then
-  lcclaude_update
+  do_update "lcclaude" "LCCLAUDE_HOME"
 fi
 
-API_KEY="${LONGCAT_API_KEY:-}"
-if [ -z "$API_KEY" ]; then
-  for f in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
-    candidate="$(extract_key_from_file "$f" || true)"
-    if [ -n "${candidate:-}" ]; then
-      API_KEY="$candidate"
-      break
-    fi
-  done
-fi
-
+API_KEY="$(resolve_api_key "LONGCAT_API_KEY")"
 if [ -z "$API_KEY" ]; then
   echo "❌ LONGCAT_API_KEY not found." >&2
   echo "   Add one line to ~/.zshrc or ~/.bashrc:" >&2
@@ -104,10 +66,6 @@ if [ -z "$API_KEY" ]; then
 fi
 
 BASE_URL="${LONGCAT_BASE_URL:-https://api.longcat.chat/anthropic}"
-
-PRO_MODEL="${LONGCAT_MODEL:-LongCat-2.0}"
-FLASH_MODEL="${LONGCAT_FLASH_MODEL:-LongCat-Flash-Chat}"
-THINK_MODEL="${LONGCAT_THINK_MODEL:-LongCat-Flash-Thinking}"
 
 LONG_CTX=0
 EFFORT="${LONGCAT_EFFORT:-}"
@@ -141,36 +99,12 @@ else
   OTHER_DESC="LongCat 2.0 — flagship reasoning"
 fi
 
-unset ANTHROPIC_API_KEY 2>/dev/null || true
-
-export ANTHROPIC_BASE_URL="$BASE_URL"
-export ANTHROPIC_AUTH_TOKEN="$API_KEY"
-export ANTHROPIC_MODEL="$MAIN_MODEL"
-export ANTHROPIC_DEFAULT_OPUS_MODEL="$MAIN_MODEL"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="$MAIN_MODEL"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="$FLASH_MODEL"
+export_anthropic_base
 export CLAUDE_CODE_SUBAGENT_MODEL="$FLASH_MODEL"
+set_custom_model "$OTHER_MODEL" "$MAIN_MODEL" "$OTHER_DESC"
 
-if [ "$OTHER_MODEL" != "$MAIN_MODEL" ]; then
-  export ANTHROPIC_CUSTOM_MODEL_OPTION="$OTHER_MODEL"
-  export ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="$OTHER_MODEL"
-  export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="$OTHER_DESC"
-fi
-
-# ---- Effort level ----------------------------------------------------------
-if [ -n "$EFFORT" ]; then export CLAUDE_CODE_EFFORT_LEVEL="$EFFORT"; fi
-
-# ---- Context window --------------------------------------------------------
 CTX="${LONGCAT_CTX:-}"
-if [ -z "$CTX" ] && [ "$LONG_CTX" = "1" ]; then CTX="1048576"; fi
-if [ -n "$CTX" ]; then export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$CTX"; export DISABLE_COMPACT=1; fi
+OUTPUT_CAP="${LONGCAT_OUTPUT:-}"
+apply_context_and_effort
 
-# ---- Output cap ------------------------------------------------------------
-if [ -n "${LONGCAT_OUTPUT:-}" ]; then export CLAUDE_CODE_MAX_OUTPUT_TOKENS="$LONGCAT_OUTPUT"; fi
-
-banner="🚀 Claude Code on LongCat  →  $MAIN_MODEL  ($BASE_URL)"
-[ -n "$CTX" ] && banner="$banner  |  ctx=$CTX"
-[ -n "$EFFORT" ] && banner="$banner  |  effort=$EFFORT"
-[ "$OTHER_MODEL" != "$MAIN_MODEL" ] && banner="$banner  (switch mid-session via /model)"
-echo "$banner"
-exec claude "$@"
+show_banner_and_launch "LongCat" "$@"

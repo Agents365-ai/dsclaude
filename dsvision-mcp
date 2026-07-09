@@ -62,8 +62,13 @@ def resolve_api_key() -> str:
             continue
         for line in path.read_text(errors="ignore").splitlines():
             line = line.strip()
+            if line.startswith("#"):
+                continue
             if line.startswith("export DASHSCOPE_API_KEY="):
                 value = line.split("=", 1)[1].strip().strip('"').strip("'")
+                # Strip inline comment if present (e.g. "sk-abc # my key")
+                if " #" in value:
+                    value = value.split(" #", 1)[0].strip()
                 if value:
                     return value
     raise RuntimeError(
