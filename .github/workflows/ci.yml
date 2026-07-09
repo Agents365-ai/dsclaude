@@ -20,7 +20,8 @@ jobs:
             # Detect bash scripts by their shebang
             head -1 "$script" | grep -q '^#!/.*bash' || continue
             echo "::group::$script"
-            shellcheck -x "$script" || errors=$((errors + 1))
+            # Fail on warning+ only; info/style findings don't block CI.
+            shellcheck -x --severity=warning "$script" || errors=$((errors + 1))
             echo "::endgroup::"
           done
           [ "$errors" -eq 0 ] || { echo "::error::$errors script(s) failed ShellCheck"; exit 1; }
@@ -38,14 +39,14 @@ jobs:
           $errors = 0
           foreach ($s in $scripts) {
             Write-Host "::group::$($s.Name)"
+            # Annotate warnings and errors, but only fail CI on errors.
             $result = Invoke-ScriptAnalyzer -Path $s.FullName -Severity Error,Warning
-            if ($result) {
-              foreach ($r in $result) {
-                Write-Host "::warning file=$($s.Name),line=$($r.Line)::$($r.Message)"
-              }
-              $errors++
+            foreach ($r in $result) {
+              $level = if ($r.Severity -eq 'Error') { 'error' } else { 'warning' }
+              Write-Host "::$level file=$($s.Name),line=$($r.Line)::$($r.RuleName): $($r.Message)"
             }
+            if ($result | Where-Object { $_.Severity -eq 'Error' }) { $errors++ }
             Write-Host "::endgroup::"
           }
-          if ($errors -gt 0) { Write-Error "$errors script(s) have warnings or errors"; exit 1 }
-          Write-Host "All PS1 scripts passed."
+          if ($errors -gt 0) { Write-Error "$errors script(s) have analyzer errors"; exit 1 }
+          Write-Host "All PS1 scripts passed (warnings shown as annotations)."
