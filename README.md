@@ -648,32 +648,6 @@ analyze_image(focus="What error is shown?")
 | Cowork / Desktop with inline images | `dsvision-mcp` (only option that works) |
 | Cowork with explicit paths, sandbox tweaks OK | either |
 
----
-
-## Community
-
-Join us for help, Q&A, and updates:
-
-- **Discord:** https://discord.gg/79JF5Atuk
-- **WeChat:** scan the QR code below
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/agents365ai_wechat_1.png" width="200" alt="WeChat Community Group">
-</p>
-
-## Support
-
-If these scripts save you time, consider supporting the author:
-
-<table>
-  <tr>
-    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/wechat-pay.png" width="150" alt="WeChat Pay"><br><b>WeChat Pay</b></td>
-    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/alipay.png" width="150" alt="Alipay"><br><b>Alipay</b></td>
-    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/buymeacoffee.png" width="150" alt="Buy Me a Coffee"><br><b>Buy Me a Coffee</b></td>
-    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/awarding/award.gif" width="150" alt="Give a Reward"><br><b>Give a Reward</b></td>
-  </tr>
-</table>
-
 ## Author
 
 **Agents365-ai** · [Bilibili](https://space.bilibili.com/441831884) · [GitHub](https://github.com/Agents365-ai)
