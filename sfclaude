@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # variables consumed by lib/common.sh
 # sfclaude — launch Claude Code on SiliconFlow's Anthropic-compatible API.
 #
 # SiliconFlow (硅基流动) is a multi-model platform giving access to DeepSeek,
@@ -43,8 +44,19 @@
 
 set -euo pipefail
 
-SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
-source "$SELF_DIR/lib/common.sh"
+# Resolve symlink to find the real script directory.
+_SELF="$0"
+if [ -L "$_SELF" ]; then
+  _LINK="$(readlink "$_SELF")"
+  case "$_LINK" in
+    /*) _SELF="$_LINK" ;;
+    *)  _SELF="$(cd "$(dirname "$_SELF")" && pwd)/$_LINK" ;;
+  esac
+fi
+SELF_DIR="$(cd "$(dirname "$_SELF")" && pwd)"
+if [ -f "$SELF_DIR/lib/common.sh" ]; then source "$SELF_DIR/lib/common.sh"
+elif [ -f "$SELF_DIR/../lib/common.sh" ]; then source "$SELF_DIR/../lib/common.sh"
+else echo "sfclaude: cannot find lib/common.sh. Reinstall or cd to repo." >&2; exit 1; fi
 
 check_version "sfclaude" "$@"
 

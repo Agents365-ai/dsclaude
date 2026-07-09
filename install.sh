@@ -67,6 +67,12 @@ else
   REPO_DIR="$TMP_DIR"
 fi
 
+# ---- Install shared library --------------------------------------------------
+echo "install.sh: installing shared library..."
+mkdir -p "$PREFIX/lib"
+cp "$REPO_DIR/lib/common.sh" "$PREFIX/lib/common.sh"
+chmod +x "$PREFIX/lib/common.sh"
+
 # ---- Install CLI launchers (no extension) ----------------------------------
 count=0
 echo "install.sh: installing CLI launchers..."
