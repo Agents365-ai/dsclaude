@@ -60,44 +60,14 @@
 #
 set -euo pipefail
 
-qwclaude_update() {
-  local repo=""
-  local self_dir
-  self_dir="$(cd "$(dirname "$0")" && pwd)"
-  if [ -d "$self_dir/.git" ]; then
-    repo="$self_dir"
-  fi
-  if [ -z "$repo" ] && [ -n "${QWCLAUDE_HOME:-}" ]; then
-    repo="$QWCLAUDE_HOME"
-  fi
-  if [ -z "$repo" ] && [ -d "$HOME/github/xxclaude/.git" ]; then
-    repo="$HOME/github/xxclaude"
-  fi
-  if [ -z "$repo" ]; then
-    echo "qwclaude: cannot find the xxclaude repo for self-update." >&2
-    echo "  Set QWCLAUDE_HOME=/path/to/xxclaude  or  cd into the repo and run ./qwclaude update" >&2
-    exit 1
-  fi
-  echo "qwclaude: pulling latest from $repo ..."
-  git -C "$repo" pull && echo "qwclaude: updated." || {
-    echo "qwclaude: git pull failed. Check network or resolve conflicts manually." >&2
-    exit 1
-  }
-  exit 0
-}
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SELF_DIR/lib/common.sh"
 
-extract_key_from_file() {
-  local file="$1" var="$2"
-  [ -f "$file" ] || return 1
-  grep -E "^[[:space:]]*(export[[:space:]]+)?${var}=" "$file" \
-    | tail -n1 \
-    | sed -E "s/^[[:space:]]*(export[[:space:]]+)?${var}=//" \
-    | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'
-}
+check_version "qwclaude" "$@"
 
 # Handle the update subcommand before the API-key check so it works key-less.
 if [ $# -gt 0 ] && [ "$1" = "update" ]; then
-  qwclaude_update
+  do_update "qwclaude" "QWCLAUDE_HOME"
 fi
 
 PLAN="${QWEN_PLAN:-payg}"
@@ -164,17 +134,7 @@ case "$PLAN" in
 esac
 
 # Resolve the plan-specific API key: env var first, then shell rc files.
-API_KEY="${!KEY_VAR:-}"
-if [ -z "$API_KEY" ]; then
-  for f in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
-    candidate="$(extract_key_from_file "$f" "$KEY_VAR" || true)"
-    if [ -n "${candidate:-}" ]; then
-      API_KEY="$candidate"
-      break
-    fi
-  done
-fi
-
+API_KEY="$(resolve_api_key "$KEY_VAR")"
 if [ -z "$API_KEY" ]; then
   echo "❌ $KEY_VAR not found (needed for Bailian $PLAN_LABEL)." >&2
   echo "   Add one line to ~/.zshrc or ~/.bashrc:" >&2
@@ -214,50 +174,16 @@ case "$MAIN_MODEL" in
     ;;
 esac
 
-# Bailian docs warn that lingering official Anthropic credentials shadow
-# ANTHROPIC_AUTH_TOKEN and make Claude Code hit api.anthropic.com instead.
-unset ANTHROPIC_API_KEY 2>/dev/null || true
-
-export ANTHROPIC_BASE_URL="$BASE_URL"
-export ANTHROPIC_AUTH_TOKEN="$API_KEY"
+export_anthropic_base
 export API_TIMEOUT_MS="600000"
-export ANTHROPIC_MODEL="$MAIN_MODEL"
-export ANTHROPIC_DEFAULT_OPUS_MODEL="$MAIN_MODEL"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="$MAIN_MODEL"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="$FLASH_MODEL"
 # Subagents run on the cheaper flash tier.
 export CLAUDE_CODE_SUBAGENT_MODEL="$FLASH_MODEL"
-# Keep all traffic on Bailian; avoids the api.anthropic.com connection error.
-export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 
-# Expose the other Qwen model inside the `/model` picker (skip when identical).
-if [ "$OTHER_MODEL" != "$MAIN_MODEL" ]; then
-  export ANTHROPIC_CUSTOM_MODEL_OPTION="$OTHER_MODEL"
-  export ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="$OTHER_MODEL"
-  export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="$OTHER_DESC"
-fi
+set_custom_model "$OTHER_MODEL" "$MAIN_MODEL" "$OTHER_DESC"
 
-# ---- Effort level ----------------------------------------------------------
-if [ -n "$EFFORT" ]; then
-  export CLAUDE_CODE_EFFORT_LEVEL="$EFFORT"
-fi
-
-# ---- Context window --------------------------------------------------------
-# Qwen 3.7 models natively support 1M-token context. The `long` flag or
-# QWEN_CTX env var sets the context window and disables auto-compaction.
 CTX="${QWEN_CTX:-}"
-if [ -z "$CTX" ] && [ "$LONG_CTX" = "1" ]; then
-  CTX="1048576"
-fi
-if [ -n "$CTX" ]; then
-  export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$CTX"
-  export DISABLE_COMPACT=1
-fi
-
-# ---- Output cap ------------------------------------------------------------
-if [ -n "${QWEN_OUTPUT:-}" ]; then
-  export CLAUDE_CODE_MAX_OUTPUT_TOKENS="$QWEN_OUTPUT"
-fi
+OUTPUT_CAP="${QWEN_OUTPUT:-}"
+apply_context_and_effort
 
 banner="🚀 Claude Code on Qwen (Bailian $PLAN_LABEL)  →  $MAIN_MODEL  ($BASE_URL)"
 [ -n "$CTX" ] && banner="$banner  |  ctx=$CTX"

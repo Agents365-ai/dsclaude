@@ -31,17 +31,22 @@
 
 set -euo pipefail
 
-# ---- Resolve the repo directory (for finding launcher scripts) ---------------
-find_repo() {
-  local self_dir
-  self_dir="$(cd "$(dirname "$0")" && pwd)"
-  if [ -d "$self_dir/.git" ]; then echo "$self_dir"; return 0; fi
-  if [ -n "${XCLAUDE_HOME:-}" ] && [ -d "$XCLAUDE_HOME/.git" ]; then echo "$XCLAUDE_HOME"; return 0; fi
-  if [ -d "$HOME/github/xxclaude/.git" ]; then echo "$HOME/github/xxclaude"; return 0; fi
-  echo ""
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SELF_DIR/lib/common.sh"
+
+check_version "xclaude" "$@"
+
+# ---- Ensure claude is available (called before each exec path) ----------------
+_ensure_claude() {
+  if command -v claude >/dev/null 2>&1; then return 0; fi
+  echo "xclaude: 'claude' not found in PATH." >&2
+  echo "  Install Claude Code: npm install -g @anthropic-ai/claude-code" >&2
+  echo "  Docs: https://docs.anthropic.com/en/docs/claude-code/overview" >&2
+  exit 1
 }
 
-REPO="$(find_repo)"
+# ---- Resolve the repo directory (for finding launcher scripts) ---------------
+REPO="$(find_repo "XCLAUDE_HOME")"
 if [ -z "$REPO" ]; then
   echo "xclaude: cannot find the xxclaude repo." >&2
   echo "  Set XCLAUDE_HOME=/path/to/xxclaude  or  cd into the repo and run ./xclaude" >&2
@@ -49,17 +54,15 @@ if [ -z "$REPO" ]; then
 fi
 
 # ---- Extract an API key from env or shell rc files --------------------------
+# Uses the shared extract_key_from_file which skips commented-out lines.
 get_key() {
   local var="$1"
   # 1) Env var.
   if [ -n "${!var:-}" ]; then printf '%s' "${!var}"; return 0; fi
-  # 2) Shell rc files.
+  # 2) Shell rc files (via shared extract_key_from_file).
   local f candidate
   for f in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
-    [ -f "$f" ] || continue
-    candidate="$(grep -E "^[[:space:]]*(export[[:space:]]+)?${var}=" "$f" 2>/dev/null \
-      | tail -1 | sed -E "s/^[[:space:]]*(export[[:space:]]+)?${var}=//" \
-      | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/' || true)"
+    candidate="$(extract_key_from_file "$f" "$var" || true)"
     if [ -n "${candidate:-}" ]; then printf '%s' "$candidate"; return 0; fi
   done
   return 1
@@ -124,6 +127,7 @@ if [ $# -gt 0 ]; then
         if [ -x "$LAUNCHER_PATH" ]; then
           echo "xclaude: launching $SELECTED..."
           shift
+          _ensure_claude
           exec "$LAUNCHER_PATH" "$@"
         else
           echo "xclaude: launcher not found: $LAUNCHER_PATH" >&2; exit 1
@@ -161,9 +165,7 @@ if [ -n "${XCLAUDE_PREFER:-}" ]; then
       if [ -n "${key:-}" ]; then FOUND="$launcher:$key:$label"; break; fi
     fi
   done
-  if [ -n "$FOUND" ]; then
-    :
-  else
+  if [ -z "$FOUND" ]; then
     echo "xclaude: XCLAUDE_PREFER=$XCLAUDE_PREFER but that key is not set. Trying auto-detect..." >&2
   fi
 fi
@@ -215,4 +217,5 @@ fi
 # Forward ALL remaining args to the underlying launcher.
 # The launcher will handle its own arg parsing (fast, long, effort, model aliases, etc.).
 echo "xclaude: detected $VALID_LABEL  →  delegating to $LAUNCHER"
+_ensure_claude
 exec "$LAUNCHER_PATH" "$@"

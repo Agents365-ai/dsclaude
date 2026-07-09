@@ -12,6 +12,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Syntax check (bash -n)
+        run: |
+          errors=0
+          for script in *; do
+            [ -f "$script" ] || continue
+            head -1 "$script" | grep -q '^#!/.*bash' || continue
+            if ! bash -n "$script" 2>&1; then
+              echo "::error file=$script::Syntax error in $script"
+              errors=$((errors + 1))
+            fi
+          done
+          # Also check lib/common.sh
+          if [ -f lib/common.sh ]; then
+            bash -n lib/common.sh || { echo "::error file=lib/common.sh::Syntax error"; errors=$((errors + 1)); }
+          fi
+          [ "$errors" -eq 0 ] || { echo "::error::$errors script(s) have syntax errors"; exit 1; }
       - name: Run ShellCheck
         run: |
           errors=0
@@ -24,6 +40,12 @@ jobs:
             shellcheck -x --severity=warning "$script" || errors=$((errors + 1))
             echo "::endgroup::"
           done
+          # Also check lib/common.sh
+          if [ -f lib/common.sh ]; then
+            echo "::group::lib/common.sh"
+            shellcheck -x --severity=warning lib/common.sh || errors=$((errors + 1))
+            echo "::endgroup::"
+          fi
           [ "$errors" -eq 0 ] || { echo "::error::$errors script(s) failed ShellCheck"; exit 1; }
 
   pssa:

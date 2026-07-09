@@ -102,7 +102,8 @@ resolve_api_key() {
   local rc found=""
   for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
     [[ -r "$rc" ]] || continue
-    found="$(grep -E '^[[:space:]]*export[[:space:]]+ARK_API_KEY=' "$rc" 2>/dev/null \
+    found="$(grep -v '^[[:space:]]*#' "$rc" 2>/dev/null \
+      | grep -E '^[[:space:]]*export[[:space:]]+ARK_API_KEY=' \
       | tail -1 \
       | sed -E 's/^[^=]*=//; s/^"(.*)"$/\1/; s/^'\''(.*)'\''$/\1/' \
       || true)"

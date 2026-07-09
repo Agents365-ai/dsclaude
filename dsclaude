@@ -40,55 +40,21 @@
 #
 set -euo pipefail
 
-dsclaude_update() {
-  local repo=""
-  # 1) We're inside the repo checkout (most common).
-  local self_dir
-  self_dir="$(cd "$(dirname "$0")" && pwd)"
-  if [ -d "$self_dir/.git" ]; then
-    repo="$self_dir"
-  fi
-  # 2) DSCLAUDE_HOME env var.
-  if [ -z "$repo" ] && [ -n "${DSCLAUDE_HOME:-}" ]; then
-    repo="$DSCLAUDE_HOME"
-  fi
-  # 3) Common clone location.
-  if [ -z "$repo" ] && [ -d "$HOME/github/dsclaude/.git" ]; then
-    repo="$HOME/github/dsclaude"
-  fi
-  if [ -z "$repo" ]; then
-    echo "dsclaude: cannot find the dsclaude repo for self-update." >&2
-    echo "  Set DSCLAUDE_HOME=/path/to/dsclaude  or  cd into the repo and run ./dsclaude update" >&2
-    exit 1
-  fi
-  echo "dsclaude: pulling latest from $repo ..."
-  git -C "$repo" pull && echo "dsclaude: updated." || {
-    echo "dsclaude: git pull failed. Check network or resolve conflicts manually." >&2
-    exit 1
-  }
-  exit 0
-}
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SELF_DIR/lib/common.sh"
 
-extract_key_from_file() {
-  local file="$1"
-  [ -f "$file" ] || return 1
-  grep -E '^[[:space:]]*(export[[:space:]]+)?DEEPSEEK_API_KEY=' "$file" \
-    | tail -n1 \
-    | sed -E 's/^[[:space:]]*(export[[:space:]]+)?DEEPSEEK_API_KEY=//' \
-    | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'
-}
+check_version "dsclaude" "$@"
 
-API_KEY="${DEEPSEEK_API_KEY:-}"
-if [ -z "$API_KEY" ]; then
-  for f in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
-    candidate="$(extract_key_from_file "$f" || true)"
-    if [ -n "${candidate:-}" ]; then
-      API_KEY="$candidate"
-      break
-    fi
-  done
+# DeepSeek V4 model names (per DeepSeek docs, 2026-04).
+PRO_MODEL="deepseek-v4-pro[1m]"
+FLASH_MODEL="deepseek-v4-flash[1m]"
+
+# Handle the update subcommand before the API-key check so it works key-less.
+if [ $# -gt 0 ] && [ "$1" = "update" ]; then
+  do_update "dsclaude" "DSCLAUDE_HOME"
 fi
 
+API_KEY="$(resolve_api_key "DEEPSEEK_API_KEY")"
 if [ -z "$API_KEY" ]; then
   echo "❌ DEEPSEEK_API_KEY not found." >&2
   echo "   Add one line to ~/.zshrc or ~/.bashrc:" >&2
@@ -96,21 +62,15 @@ if [ -z "$API_KEY" ]; then
   exit 1
 fi
 
-# DeepSeek V4 model names (per DeepSeek docs, 2026-04).
-PRO_MODEL="deepseek-v4-pro[1m]"
-FLASH_MODEL="deepseek-v4-flash[1m]"
+BASE_URL="https://api.deepseek.com/anthropic"
 
 # Positional aliases: `long` (1M context), `effort` (reasoning level), `fast` (flash as main).
 LONG_CTX=0
 EFFORT="${DSCLAUDE_EFFORT:-}"
 MAIN_MODEL="$PRO_MODEL"
-HAIKU_MODEL="$FLASH_MODEL"
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    update)
-      dsclaude_update
-      ;;
     long)
       LONG_CTX=1
       shift
@@ -150,24 +110,17 @@ else
   OTHER_DESC="DeepSeek V4 Pro — full reasoning"
 fi
 
-export ANTHROPIC_BASE_URL="https://api.deepseek.com/anthropic"
+export_anthropic_base
 
-export ANTHROPIC_AUTH_TOKEN="$API_KEY"
+# DeepSeek-specific env vars (per official docs).
 export API_TIMEOUT_MS="600000"
-export ANTHROPIC_MODEL="$MAIN_MODEL"
-export ANTHROPIC_DEFAULT_OPUS_MODEL="$MAIN_MODEL"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="$MAIN_MODEL"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="$HAIKU_MODEL"
 # Subagents: strip the [1m] long-context tag — short subagent calls don't need 1M.
 export CLAUDE_CODE_SUBAGENT_MODEL="${FLASH_MODEL%'[1m]'}"
-export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 export CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK=1
+# DeepSeek docs recommend effort=max for coding agents.
 export CLAUDE_CODE_EFFORT_LEVEL="${EFFORT:-max}"
 
-# Expose the other DeepSeek model inside the `/model` picker.
-export ANTHROPIC_CUSTOM_MODEL_OPTION="$OTHER_MODEL"
-export ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="$OTHER_MODEL"
-export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="$OTHER_DESC"
+set_custom_model "$OTHER_MODEL" "$MAIN_MODEL" "$OTHER_DESC"
 
 # Optional context-window override. Env > positional > unset (Claude Code default).
 # DeepSeek V4 Pro supports up to 1,048,576 input tokens.
@@ -175,14 +128,16 @@ CTX="${DSCLAUDE_CTX:-}"
 if [ -z "$CTX" ] && [ "$LONG_CTX" = "1" ]; then
   CTX="1048576"
 fi
+OUTPUT_CAP="${DSCLAUDE_OUTPUT:-}"
+
+# Apply context & output (skip apply_context_and_effort because effort is already
+# set above with DeepSeek-specific default).
 if [ -n "$CTX" ]; then
   export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$CTX"
   export DISABLE_COMPACT=1
 fi
-
-# Optional output cap.
-if [ -n "${DSCLAUDE_OUTPUT:-}" ]; then
-  export CLAUDE_CODE_MAX_OUTPUT_TOKENS="$DSCLAUDE_OUTPUT"
+if [ -n "$OUTPUT_CAP" ]; then
+  export CLAUDE_CODE_MAX_OUTPUT_TOKENS="$OUTPUT_CAP"
 fi
 
 banner="🚀 Claude Code on DeepSeek  →  $MAIN_MODEL"
