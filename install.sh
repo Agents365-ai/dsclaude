@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh — one-command installer for xxclaude launchers.
+# install.sh — one-command installer for dsclaude launchers.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/Agents365-ai/dsclaude/main/install.sh | bash

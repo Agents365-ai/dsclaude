@@ -38,6 +38,9 @@ const PORT = (() => {
   return Number(process.env.CODEX_ADAPTER_PORT || 8317);
 })();
 
+const MAX_BODY_SIZE = 10 * 1024 * 1024;  // 10 MB
+const UPSTREAM_TIMEOUT_MS = 10 * 60 * 1000;  // 10 minutes
+
 // Chat-only upstreams. Override any URL with ADAPTER_<ID>_URL (uppercased id).
 const UPSTREAMS = {
   deepseek:    'https://api.deepseek.com/chat/completions',
@@ -382,6 +385,7 @@ async function handleResponses(provider, body, req, res) {
       'Authorization': req.headers['authorization'] || '',
     },
     body: JSON.stringify(chatBody),
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   });
 
   if (!upstreamRes.ok) {
@@ -452,7 +456,19 @@ const server = http.createServer((req, res) => {
   }
 
   const chunks = [];
-  req.on('data', c => chunks.push(c));
+  let bodySize = 0;
+  req.on('data', c => {
+    bodySize += c.length;
+    if (bodySize > MAX_BODY_SIZE) {
+      if (!res.headersSent) {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { type: 'too_large', message: `Body exceeds ${MAX_BODY_SIZE / 1024 / 1024} MB limit` } }));
+      }
+      req.destroy();
+      return;
+    }
+    chunks.push(c);
+  });
   req.on('end', () => {
     let body;
     try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); }

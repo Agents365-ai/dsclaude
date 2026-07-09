@@ -46,6 +46,8 @@ set -euo pipefail
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/common.sh"
 
+check_version "hyclaude" "$@"
+
 PRO_MODEL="${HY_MODEL:-hy3-preview}"
 FLASH_MODEL="${HY_FLASH_MODEL:-hy-mt2-lite}"
 
@@ -108,7 +110,6 @@ esac
 
 export_anthropic_base
 export CLAUDE_CODE_SUBAGENT_MODEL="$FLASH_MODEL"
-export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 set_custom_model "$OTHER_MODEL" "$MAIN_MODEL" "$OTHER_DESC"
 
 CTX="${HY_CTX:-}"

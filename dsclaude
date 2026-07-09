@@ -43,6 +43,8 @@ set -euo pipefail
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/common.sh"
 
+check_version "dsclaude" "$@"
+
 # DeepSeek V4 model names (per DeepSeek docs, 2026-04).
 PRO_MODEL="deepseek-v4-pro[1m]"
 FLASH_MODEL="deepseek-v4-flash[1m]"
@@ -114,7 +116,6 @@ export_anthropic_base
 export API_TIMEOUT_MS="600000"
 # Subagents: strip the [1m] long-context tag — short subagent calls don't need 1M.
 export CLAUDE_CODE_SUBAGENT_MODEL="${FLASH_MODEL%'[1m]'}"
-export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 export CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK=1
 # DeepSeek docs recommend effort=max for coding agents.
 export CLAUDE_CODE_EFFORT_LEVEL="${EFFORT:-max}"

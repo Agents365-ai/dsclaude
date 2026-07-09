@@ -33,31 +33,31 @@ _xclaude() {
 compdef _xclaude xclaude
 
 # ---- dsclaude ----
-compdef '_arguments "1: :((fast\:flash\ tier long\:1M\ context effort\:effort\ level think\:deep\ reasoning))"' dsclaude
+compdef '_arguments "1: :((fast\:flash\ tier long\:1M\ context effort\:effort\ level think\:deep\ reasoning reasoner\:backward-compat\ alias -r\:backward-compat\ alias update\:git\ pull\ latest))"' dsclaude
 
 # ---- mmclaude ----
-compdef '_arguments "1: :((fast long effort))"' mmclaude
+compdef '_arguments "1: :((fast long effort update))"' mmclaude
 
 # ---- qwclaude ----
-compdef '_arguments "1: :((max pro plus fast flash long effort coding token intl cn))"' qwclaude
+compdef '_arguments "1: :((max pro plus fast flash long effort coding token intl cn update))"' qwclaude
 
 # ---- glmclaude ----
-compdef '_arguments "1: :((fast long effort))"' glmclaude
+compdef '_arguments "1: :((fast long effort update))"' glmclaude
 
 # ---- kmclaude ----
-compdef '_arguments "1: :((fast long effort))"' kmclaude
+compdef '_arguments "1: :((fast long effort update))"' kmclaude
 
 # ---- arkclaude ----
-compdef '_arguments "1: :((max pro plus fast flash lite kimi kimi-pro kimi-k2 deepseek deepseek-flash glm minimax long effort))"' arkclaude
+compdef '_arguments "1: :((max pro plus fast flash lite kimi kimi-pro kimi-k2 deepseek deepseek-flash glm minimax long effort update))"' arkclaude
 
 # ---- lcclaude ----
-compdef '_arguments "1: :((fast flash think long effort))"' lcclaude
+compdef '_arguments "1: :((fast flash think long effort update))"' lcclaude
 
 # ---- mxclaude ----
-compdef '_arguments "1: :((fast long effort))"' mxclaude
+compdef '_arguments "1: :((fast long effort update))"' mxclaude
 
 # ---- hyclaude ----
-compdef '_arguments "1: :((max pro code fast flash lite kimi kimi-pro kimi-k2 deepseek deepseek-flash glm minimax qwen long effort))"' hyclaude
+compdef '_arguments "1: :((max pro code fast flash lite kimi kimi-pro kimi-k2 deepseek deepseek-flash glm minimax qwen long effort update))"' hyclaude
 
 # ---- sfclaude ----
-compdef '_arguments "1: :((max pro fast flash lite kimi glm minimax qwen yi r1 long effort))"' sfclaude
+compdef '_arguments "1: :((max pro fast flash lite kimi glm minimax qwen yi r1 long effort update))"' sfclaude

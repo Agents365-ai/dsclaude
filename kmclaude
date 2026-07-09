@@ -39,6 +39,8 @@ set -euo pipefail
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/common.sh"
 
+check_version "kmclaude" "$@"
+
 PRO_MODEL="${KIMI_MODEL:-kimi-k2.6}"
 FLASH_MODEL="${KIMI_FLASH_MODEL:-kimi-k2.5}"
 

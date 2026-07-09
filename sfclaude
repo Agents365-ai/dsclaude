@@ -46,6 +46,8 @@ set -euo pipefail
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/common.sh"
 
+check_version "sfclaude" "$@"
+
 PRO_MODEL="${SF_MODEL:-deepseek-ai/DeepSeek-V4-PRO}"
 FLASH_MODEL="${SF_FLASH_MODEL:-deepseek-ai/DeepSeek-V3}"
 

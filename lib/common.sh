@@ -78,6 +78,25 @@ export_anthropic_base() {
   export ANTHROPIC_DEFAULT_OPUS_MODEL="$MAIN_MODEL"
   export ANTHROPIC_DEFAULT_SONNET_MODEL="$MAIN_MODEL"
   export ANTHROPIC_DEFAULT_HAIKU_MODEL="$FLASH_MODEL"
+
+  # Prevent Claude Code from pinging api.anthropic.com for non-essential
+  # features (billing check, feature flags) — those always fail on third-
+  # party backends and produce noisy connection-error logs.
+  export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+}
+
+# ---- check_version: handle --version / -V flag -------------------------
+# Usage: check_version "dsclaude" "$@"
+# If the first arg is --version or -V, prints version info and exits.
+check_version() {
+  local name="$1"; shift
+  if [ $# -gt 0 ] && { [ "$1" = "--version" ] || [ "$1" = "-V" ]; }; then
+    local repo ver="unknown"
+    repo="$(find_repo "DUMMY" 2>/dev/null || true)"
+    [ -n "$repo" ] && ver="$(git -C "$repo" describe --tags --always --dirty 2>/dev/null || echo "unknown")"
+    echo "$name $ver"
+    exit 0
+  fi
 }
 
 # ---- set_custom_model: expose alternate model in /model picker ----------

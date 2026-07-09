@@ -45,6 +45,8 @@ set -euo pipefail
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/common.sh"
 
+check_version "mxclaude" "$@"
+
 PRO_MODEL="${MINIMAX_MODEL:-MiniMax-M3}"
 FLASH_MODEL="${MINIMAX_FLASH_MODEL:-MiniMax-M2.5}"
 

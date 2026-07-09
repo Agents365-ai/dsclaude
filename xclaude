@@ -34,6 +34,17 @@ set -euo pipefail
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/common.sh"
 
+check_version "xclaude" "$@"
+
+# ---- Ensure claude is available (called before each exec path) ----------------
+_ensure_claude() {
+  if command -v claude >/dev/null 2>&1; then return 0; fi
+  echo "xclaude: 'claude' not found in PATH." >&2
+  echo "  Install Claude Code: npm install -g @anthropic-ai/claude-code" >&2
+  echo "  Docs: https://docs.anthropic.com/en/docs/claude-code/overview" >&2
+  exit 1
+}
+
 # ---- Resolve the repo directory (for finding launcher scripts) ---------------
 REPO="$(find_repo "XCLAUDE_HOME")"
 if [ -z "$REPO" ]; then
@@ -116,6 +127,7 @@ if [ $# -gt 0 ]; then
         if [ -x "$LAUNCHER_PATH" ]; then
           echo "xclaude: launching $SELECTED..."
           shift
+          _ensure_claude
           exec "$LAUNCHER_PATH" "$@"
         else
           echo "xclaude: launcher not found: $LAUNCHER_PATH" >&2; exit 1
@@ -205,4 +217,5 @@ fi
 # Forward ALL remaining args to the underlying launcher.
 # The launcher will handle its own arg parsing (fast, long, effort, model aliases, etc.).
 echo "xclaude: detected $VALID_LABEL  →  delegating to $LAUNCHER"
+_ensure_claude
 exec "$LAUNCHER_PATH" "$@"

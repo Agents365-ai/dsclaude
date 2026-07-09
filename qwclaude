@@ -63,6 +63,8 @@ set -euo pipefail
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/common.sh"
 
+check_version "qwclaude" "$@"
+
 # Handle the update subcommand before the API-key check so it works key-less.
 if [ $# -gt 0 ] && [ "$1" = "update" ]; then
   do_update "qwclaude" "QWCLAUDE_HOME"
@@ -176,8 +178,6 @@ export_anthropic_base
 export API_TIMEOUT_MS="600000"
 # Subagents run on the cheaper flash tier.
 export CLAUDE_CODE_SUBAGENT_MODEL="$FLASH_MODEL"
-# Keep all traffic on Bailian; avoids the api.anthropic.com connection error.
-export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 
 set_custom_model "$OTHER_MODEL" "$MAIN_MODEL" "$OTHER_DESC"
 

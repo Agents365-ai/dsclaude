@@ -40,6 +40,8 @@ set -euo pipefail
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/common.sh"
 
+check_version "glmclaude" "$@"
+
 PRO_MODEL="${GLM_MODEL:-glm-5.2}"
 FLASH_MODEL="${GLM_FLASH_MODEL:-glm-4.7}"
 

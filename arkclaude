@@ -48,6 +48,8 @@ set -euo pipefail
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/common.sh"
 
+check_version "arkclaude" "$@"
+
 # Handle the update subcommand before the API-key check so it works key-less.
 if [ $# -gt 0 ] && [ "$1" = "update" ]; then
   do_update "arkclaude" "ARKCLAUDE_HOME"
@@ -147,8 +149,6 @@ esac
 export_anthropic_base
 # Subagents run on the cheapest tier.
 export CLAUDE_CODE_SUBAGENT_MODEL="$FLASH_MODEL"
-# Keep all traffic on Ark; avoids the api.anthropic.com connection error.
-export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 
 set_custom_model "$OTHER_MODEL" "$MAIN_MODEL" "$OTHER_DESC"
 

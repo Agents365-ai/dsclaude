@@ -48,6 +48,8 @@ set -euo pipefail
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/common.sh"
 
+check_version "lcclaude" "$@"
+
 PRO_MODEL="${LONGCAT_MODEL:-LongCat-2.0}"
 FLASH_MODEL="${LONGCAT_FLASH_MODEL:-LongCat-Flash-Chat}"
 THINK_MODEL="${LONGCAT_THINK_MODEL:-LongCat-Flash-Thinking}"
