@@ -672,4 +672,4 @@ analyze_image(focus="图里报的什么错？")     # 自定义 prompt
 
 ## 开源协议
 
-MIT
+[CC BY-NC 4.0](LICENSE.md) — 非商业用途免费。**商业使用需获得授权。**
