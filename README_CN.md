@@ -653,6 +653,19 @@ analyze_image(focus="图里报的什么错？")     # 自定义 prompt
 
 ---
 
+## 赞赏支持
+
+如果这些脚本为你节省了时间，欢迎支持作者：
+
+<table>
+  <tr>
+    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/wechat-pay.png" width="150" alt="微信支付"><br><b>微信支付</b></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/alipay.png" width="150" alt="支付宝"><br><b>支付宝</b></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/qrcode/buymeacoffee.png" width="150" alt="Buy Me a Coffee"><br><b>Buy Me a Coffee</b></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Agents365-ai/images_payment/main/awarding/award.gif" width="150" alt="打赏"><br><b>打赏鼓励</b></td>
+  </tr>
+</table>
+
 ## 作者
 
 **Agents365-ai** · [Bilibili](https://space.bilibili.com/441831884) · [GitHub](https://github.com/Agents365-ai)
