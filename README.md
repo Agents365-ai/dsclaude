@@ -667,4 +667,4 @@ If these scripts save you time, consider supporting the author:
 
 ## License
 
-MIT
+[PolyForm Noncommercial 1.0.0](LICENSE.md) — free for personal, research, educational, and other noncommercial use. **Commercial use is not permitted.**

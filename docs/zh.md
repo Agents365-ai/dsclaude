@@ -211,4 +211,4 @@ analyze_image(focus="图里报的什么错？")     # 自定义 prompt
 
 ## 开源协议
 
-MIT
+[PolyForm Noncommercial 1.0.0](https://github.com/Agents365-ai/dsclaude/blob/main/LICENSE.md) — 个人、科研、教育等非商业用途免费。**禁止商业使用。**
