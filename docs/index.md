@@ -211,4 +211,4 @@ If these scripts save you time, consider supporting the author:
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](https://github.com/Agents365-ai/dsclaude/blob/main/LICENSE.md) — free for personal, research, educational, and other noncommercial use. **Commercial use is not permitted.**
+[CC BY-NC 4.0](https://github.com/Agents365-ai/dsclaude/blob/main/LICENSE.md) — free for non-commercial use. **Commercial use requires permission.**
