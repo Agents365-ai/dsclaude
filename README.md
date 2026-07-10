@@ -60,7 +60,7 @@ A collection of launchers and configurators that point [Claude Code](https://cla
 
 ![xxclaude script-logic diagram](docs/xxclaude-logic.drawio.png)
 
-Script-logic overview: the installer, the `xclaude` auto-detect dispatcher, the provider CLI launchers, the Claude Desktop configurators, and the Codex bridge — all sharing `lib/common.sh`. The PNG has the draw.io XML embedded, so opening it in [draw.io](https://app.diagrams.net) recovers the editable diagram ([source](docs/xxclaude-logic.drawio)).
+Script-logic overview: the installer, the `xclaude` auto-detect dispatcher, the provider CLI launchers, the Claude Desktop configurators, and the Codex bridge — all sharing `lib/common.sh`. The PNG has the draw.io XML embedded, so opening it in [draw.io](https://app.diagrams.net) recovers the editable diagram ([source](docs/xxclaude-logic.drawio) · [中文版](docs/xxclaude-logic-cn.drawio.png)).
 
 ---
 
