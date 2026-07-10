@@ -55,6 +55,14 @@
 
 ---
 
+## 工作原理
+
+![xxclaude 脚本逻辑图](docs/xxclaude-logic.drawio.png)
+
+脚本逻辑总览：安装器、`xclaude` 自动检测调度器、各后端 CLI 启动器、Claude Desktop 配置器与 Codex 桥接，全部共享 `lib/common.sh`。PNG 内嵌 draw.io XML，用 [draw.io](https://app.diagrams.net) 打开即可继续编辑（[源文件](docs/xxclaude-logic.drawio)）。
+
+---
+
 ## macOS 快速开始
 
 ```bash
