@@ -35,7 +35,7 @@
 # Use:
 #   pwsh -File ./kmclaude.ps1                  # kimi-k3 (Kimi flagship)
 #   pwsh -File ./kmclaude.ps1 fast             # run the flash tier (kimi-k2.5) as main
-#   pwsh -File ./kmclaude.ps1 long             # request max context window
+#   pwsh -File ./kmclaude.ps1 long             # (no-op; 1M context is the default)
 #   pwsh -File ./kmclaude.ps1 effort max       # set effort (low|medium|high|xhigh|max)
 #   pwsh -File ./kmclaude.ps1 update           # git pull latest from this repo
 #   pwsh -File ./kmclaude.ps1 --help           # any remaining flag is forwarded to claude
@@ -44,7 +44,7 @@
 #   $env:KIMI_MODEL       = 'kimi-k3'          # main model
 #   $env:KIMI_FLASH_MODEL = 'kimi-k2.5'        # flash / haiku / subagent tier
 #   $env:KIMI_BASE_URL    = 'https://.../anthropic'  # custom base URL
-#   $env:KIMI_CTX         = '1048576'          # max context tokens
+#   $env:KIMI_CTX         = '1048576'          # max context tokens (default: 1M)
 #   $env:KIMI_OUTPUT      = '8000'             # cap output tokens
 #   $env:KIMI_EFFORT      = 'max'              # CLAUDE_CODE_EFFORT_LEVEL
 #
@@ -213,7 +213,7 @@ if ($otherModel -ne $mainModel) {
 if ($Effort) { $env:CLAUDE_CODE_EFFORT_LEVEL = $Effort }
 
 # ---- Context window --------------------------------------------------------
-$ctx = if ($env:KIMI_CTX) { $env:KIMI_CTX } elseif ($LongCtx) { '1048576' } else { '' }
+$ctx = if ($env:KIMI_CTX) { $env:KIMI_CTX } else { '1048576' }
 if ($ctx) { $env:CLAUDE_CODE_MAX_CONTEXT_TOKENS = $ctx; $env:DISABLE_COMPACT = '1' }
 
 # ---- Output cap ------------------------------------------------------------

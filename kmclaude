@@ -18,7 +18,7 @@
 # Use:
 #   kmclaude                  # start on kimi-k3 (Kimi flagship)
 #   kmclaude fast             # start on kimi-k2.5 (cheaper / faster tier)
-#   kmclaude long             # request max context window
+#   kmclaude long             # (no-op; 1M context is the default)
 #   kmclaude effort max       # set reasoning effort (low|medium|high|xhigh|max)
 #   kmclaude update           # git pull latest from this repo
 #   kmclaude --help           # any remaining flag is forwarded to claude
@@ -27,7 +27,7 @@
 #   KIMI_MODEL=kimi-k3                       # main model
 #   KIMI_FLASH_MODEL=kimi-k2.5               # flash / haiku / subagent tier
 #   KIMI_BASE_URL=https://.../anthropic      # custom Anthropic-compatible base URL
-#   KIMI_CTX=1048576                         # max context tokens (defaults to 1M with `long`)
+#   KIMI_CTX=1048576                         # max context tokens (default: 1M)
 #   KIMI_OUTPUT=8000                         # cap output tokens
 #   KIMI_EFFORT=max                          # CLAUDE_CODE_EFFORT_LEVEL
 #
@@ -107,7 +107,7 @@ export_anthropic_base
 export CLAUDE_CODE_SUBAGENT_MODEL="$FLASH_MODEL"
 set_custom_model "$OTHER_MODEL" "$MAIN_MODEL" "$OTHER_DESC"
 
-CTX="${KIMI_CTX:-}"
+CTX="${KIMI_CTX:-1048576}"
 OUTPUT_CAP="${KIMI_OUTPUT:-}"
 apply_context_and_effort
 
