@@ -33,7 +33,7 @@
 #   # then add $bin to PATH and run:  pwsh -File kmclaude.ps1
 #
 # Use:
-#   pwsh -File ./kmclaude.ps1                  # kimi-k2.6 (Kimi flagship)
+#   pwsh -File ./kmclaude.ps1                  # kimi-k3 (Kimi flagship)
 #   pwsh -File ./kmclaude.ps1 fast             # run the flash tier (kimi-k2.5) as main
 #   pwsh -File ./kmclaude.ps1 long             # request max context window
 #   pwsh -File ./kmclaude.ps1 effort max       # set effort (low|medium|high|xhigh|max)
@@ -41,7 +41,7 @@
 #   pwsh -File ./kmclaude.ps1 --help           # any remaining flag is forwarded to claude
 #
 # Optional env overrides (take precedence over positional aliases):
-#   $env:KIMI_MODEL       = 'kimi-k2.6'        # main model
+#   $env:KIMI_MODEL       = 'kimi-k3'          # main model
 #   $env:KIMI_FLASH_MODEL = 'kimi-k2.5'        # flash / haiku / subagent tier
 #   $env:KIMI_BASE_URL    = 'https://.../anthropic'  # custom base URL
 #   $env:KIMI_CTX         = '1048576'          # max context tokens
@@ -50,7 +50,7 @@
 #
 # In-session switch:
 #   /model kimi-k2.5        # switch to the flash tier
-#   /model kimi-k2.6        # switch back to the main model
+#   /model kimi-k3          # switch back to the main model
 #
 # Requires: PowerShell 7+ (`winget install Microsoft.PowerShell`), Claude Code
 # CLI on PATH (`npm i -g @anthropic-ai/claude-code`), Moonshot Kimi API key.
@@ -175,7 +175,7 @@ $i = 0
 $apiKey = Resolve-ApiKey
 
 $baseUrl    = if ($env:KIMI_BASE_URL)    { $env:KIMI_BASE_URL }    else { 'https://api.moonshot.cn/anthropic' }
-$proModel   = if ($env:KIMI_MODEL)       { $env:KIMI_MODEL }       else { 'kimi-k2.6' }
+$proModel   = if ($env:KIMI_MODEL)       { $env:KIMI_MODEL }       else { 'kimi-k3' }
 $flashModel = if ($env:KIMI_FLASH_MODEL) { $env:KIMI_FLASH_MODEL } else { 'kimi-k2.5' }
 
 $mainModel = if ($WantFlash) { $flashModel } else { $proModel }
@@ -186,7 +186,7 @@ if ($mainModel -eq $proModel) {
     $otherDesc  = 'Kimi K2.5 — fast / cheap tier'
 } else {
     $otherModel = $proModel
-    $otherDesc  = 'Kimi K2.6 — full reasoning'
+    $otherDesc  = 'Kimi K3 — full reasoning'
 }
 
 # ---- Export env for claude -------------------------------------------------

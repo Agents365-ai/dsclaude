@@ -16,7 +16,7 @@
 #   sudo mv kmclaude /usr/local/bin/ && sudo chmod +x /usr/local/bin/kmclaude
 #
 # Use:
-#   kmclaude                  # start on kimi-k2.6 (Kimi flagship)
+#   kmclaude                  # start on kimi-k3 (Kimi flagship)
 #   kmclaude fast             # start on kimi-k2.5 (cheaper / faster tier)
 #   kmclaude long             # request max context window
 #   kmclaude effort max       # set reasoning effort (low|medium|high|xhigh|max)
@@ -24,7 +24,7 @@
 #   kmclaude --help           # any remaining flag is forwarded to claude
 #
 # Optional env overrides:
-#   KIMI_MODEL=kimi-k2.6                     # main model
+#   KIMI_MODEL=kimi-k3                       # main model
 #   KIMI_FLASH_MODEL=kimi-k2.5               # flash / haiku / subagent tier
 #   KIMI_BASE_URL=https://.../anthropic      # custom Anthropic-compatible base URL
 #   KIMI_CTX=1048576                         # max context tokens (defaults to 1M with `long`)
@@ -33,7 +33,7 @@
 #
 # In-session switch:
 #   /model kimi-k2.5        # switch to the flash tier
-#   /model kimi-k2.6        # switch back to pro
+#   /model kimi-k3          # switch back to pro
 #
 set -euo pipefail
 
@@ -53,7 +53,7 @@ else echo "kmclaude: cannot find lib/common.sh. Reinstall or cd to repo." >&2; e
 
 check_version "kmclaude" "$@"
 
-PRO_MODEL="${KIMI_MODEL:-kimi-k2.6}"
+PRO_MODEL="${KIMI_MODEL:-kimi-k3}"
 FLASH_MODEL="${KIMI_FLASH_MODEL:-kimi-k2.5}"
 
 # Handle the update subcommand before the API-key check so it works key-less.
@@ -98,7 +98,7 @@ if [ "$MAIN_MODEL" = "$PRO_MODEL" ]; then
   OTHER_DESC="Kimi K2.5 — fast / cheap tier"
 else
   OTHER_MODEL="$PRO_MODEL"
-  OTHER_DESC="Kimi K2.6 — full reasoning"
+  OTHER_DESC="Kimi K3 — full reasoning"
 fi
 
 export_anthropic_base

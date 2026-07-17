@@ -41,7 +41,7 @@ $StoreDir   = if (Get-ChildItem "$env:LOCALAPPDATA\Packages\Claude_*" -ErrorActi
               } else { $null }
 $EntryName  = 'kmclaude-desktop'
 $AuthScheme = 'bearer'
-$MainModel  = 'kimi-k2.6'
+$MainModel  = 'kimi-k3'
 $FastModel  = 'kimi-k2.5'
 $BaseUrl    = if ($env:KIMI_BASE_URL) { $env:KIMI_BASE_URL } else { 'https://api.moonshot.cn/anthropic' }
 
