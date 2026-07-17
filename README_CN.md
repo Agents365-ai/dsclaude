@@ -7,8 +7,9 @@
 ---
 
 ## 工具一览
+
 | 脚本 | Agent | 平台 | 后端 | 模型 |
-|------|-------|------|------|------|
+| ------ | ------- | ------ | ------ | ------ |
 | **[dsclaude](dsclaude)** | Claude Code (CLI) | macOS / Linux | DeepSeek API（Anthropic 兼容端点） | `deepseek-v4-pro[1m]`（默认，统一推理）· `deepseek-v4-flash[1m]`（快速 / haiku 档位） |
 | **[dsclaude.ps1](dsclaude.ps1)** | Claude Code (CLI) | Windows（PowerShell 7+） | DeepSeek API（Anthropic 兼容端点） | 同上 |
 | **[mmclaude](mmclaude)** | Claude Code (CLI) | macOS / Linux | 小米 MiMo（Anthropic 兼容端点） | `mimo-v2.5-pro`（默认）· `mimo-v2.5`（快速 / haiku 档位） |
@@ -17,7 +18,7 @@
 | **[qwclaude.ps1](qwclaude.ps1)** | Claude Code (CLI) | Windows（PowerShell 7+） | 阿里云百炼 Qwen（Anthropic 兼容端点） | 同上 |
 | **[glmclaude](glmclaude)** | Claude Code (CLI) | macOS / Linux | 智谱 AI GLM（Anthropic 兼容端点） | `glm-5.2`（默认）· `glm-4.7`（快速 / haiku 档位） |
 | **[glmclaude.ps1](glmclaude.ps1)** | Claude Code (CLI) | Windows（PowerShell 7+） | 智谱 AI GLM（Anthropic 兼容端点） | 同上 |
-| **[kmclaude](kmclaude)** | Claude Code (CLI) | macOS / Linux | 月之暗面 Kimi（Anthropic 兼容端点） | `kimi-k2.6`（默认）· `kimi-k2.5`（快速 / haiku 档位） |
+| **[kmclaude](kmclaude)** | Claude Code (CLI) | macOS / Linux | 月之暗面 Kimi（Anthropic 兼容端点） | `kimi-k3`（默认）· `kimi-k2.5`（快速 / haiku 档位） |
 | **[kmclaude.ps1](kmclaude.ps1)** | Claude Code (CLI) | Windows（PowerShell 7+） | 月之暗面 Kimi（Anthropic 兼容端点） | 同上 |
 | **[arkclaude](arkclaude)** | Claude Code (CLI) | macOS / Linux | 火山方舟 Ark（Anthropic 兼容端点） | `doubao-seed-2.0-code`（默认）· `doubao-seed-2.0-pro`（平衡）· `doubao-seed-2.0-lite`（快速） + Kimi/DeepSeek/GLM/MiniMax 别名 |
 | **[arkclaude.ps1](arkclaude.ps1)** | Claude Code (CLI) | Windows（PowerShell 7+） | 火山方舟 Ark（Anthropic 兼容端点） | 同上 |
@@ -38,7 +39,7 @@
 | **[qwclaude-desktop.ps1](qwclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows | 阿里云百炼 Qwen（Anthropic 兼容端点） | 同上 |
 | **[glmclaude-desktop](glmclaude-desktop)** | Claude Desktop (GUI) | macOS | 智谱 AI GLM（Anthropic 兼容端点） | `glm-5.2` · `glm-4.7` |
 | **[glmclaude-desktop.ps1](glmclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows | 智谱 AI GLM（Anthropic 兼容端点） | 同上 |
-| **[kmclaude-desktop](kmclaude-desktop)** | Claude Desktop (GUI) | macOS | 月之暗面 Kimi（Anthropic 兼容端点） | `kimi-k2.6` · `kimi-k2.5` |
+| **[kmclaude-desktop](kmclaude-desktop)** | Claude Desktop (GUI) | macOS | 月之暗面 Kimi（Anthropic 兼容端点） | `kimi-k3` · `kimi-k2.5` |
 | **[kmclaude-desktop.ps1](kmclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows | 月之暗面 Kimi（Anthropic 兼容端点） | 同上 |
 | **[arkclaude-desktop](arkclaude-desktop)** | Claude Desktop (GUI) | macOS | 火山方舟 Ark（Anthropic 兼容端点） | `doubao-seed-2.0-code` · `doubao-seed-2.0-pro` · `doubao-seed-2.0-lite` + Kimi/DeepSeek/GLM/MiniMax |
 | **[arkclaude-desktop.ps1](arkclaude-desktop.ps1)** | Claude Desktop (GUI) | Windows | 火山方舟 Ark（Anthropic 兼容端点） | 同上 |
@@ -183,7 +184,7 @@ pwsh -File ./qwclaude.ps1 coding
 按所选套餐与模型档位自动选择 base URL、模型阵容与 API key 变量。三个模型档位：
 
 | 档位 | 按量付费 / Token Plan | Coding Plan |
-|------|----------------------|-------------|
+| ------ | ---------------------- | ------------- |
 | **max**（默认） | `qwen3.7-max`（旗舰推理） | 不可用 |
 | **plus** | `qwen3.7-plus`（平衡，约 max 的 1/6） | `qwen3.7-plus`（推荐） |
 | **flash**（subagent/haiku 档） | `qwen3.6-flash` | `qwen3.6-plus` |
@@ -230,12 +231,12 @@ glmclaude
 export KIMI_API_KEY=sk-xxxxxxxxxxxxxxxxxx       # 添加到 ~/.zshrc
 # 在 https://platform.moonshot.cn/console/api-keys 获取你的 key
 
-kmclaude                  # 默认 kimi-k2.6（旗舰推理）
+kmclaude                  # 默认 kimi-k3（旗舰推理）
 kmclaude fast             # kimi-k2.5（更快更便宜）
 kmclaude update           # git pull 拉取更新
 ```
 
-使用 Kimi 官方 Anthropic 兼容端点（`https://api.moonshot.cn/anthropic`）。main/opus/sonnet 槽位使用 `kimi-k2.6`，haiku 与子代理（subagent）档使用 `kimi-k2.5`；`kmclaude fast` 会把主模型切到 flash，另一档会出现在 `/model` 选择器里以便会话中切换。自动 unset `ANTHROPIC_API_KEY`（避免遮蔽 bearer token）。可用 `KIMI_MODEL` / `KIMI_FLASH_MODEL` 覆盖两档模型，`KIMI_BASE_URL` 覆盖端点地址。
+使用 Kimi 官方 Anthropic 兼容端点（`https://api.moonshot.cn/anthropic`）。main/opus/sonnet 槽位使用 `kimi-k3`，haiku 与子代理（subagent）档使用 `kimi-k2.5`；`kmclaude fast` 会把主模型切到 flash，另一档会出现在 `/model` 选择器里以便会话中切换。自动 unset `ANTHROPIC_API_KEY`（避免遮蔽 bearer token）。可用 `KIMI_MODEL` / `KIMI_FLASH_MODEL` 覆盖两档模型，`KIMI_BASE_URL` 覆盖端点地址。
 
 > Windows（PowerShell 7+）：`pwsh -File ./kmclaude.ps1`（参数相同）。
 
@@ -344,7 +345,7 @@ pwsh ./glmclaude-desktop.ps1
 
 ## kmclaude-desktop — Claude Desktop 接入月之暗面 Kimi
 
-同款配置器，预填 Kimi。读取 `KIMI_API_KEY`，配置 `kimi-k2.6` + `kimi-k2.5`。
+同款配置器，预填 Kimi。读取 `KIMI_API_KEY`，配置 `kimi-k3` + `kimi-k2.5`。
 
 ```bash
 export KIMI_API_KEY=你的Kimi_API_KEY
@@ -604,6 +605,7 @@ export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxx
 ## dsvision-mcp — 视觉识别（MCP 方案）
 
 功能同上，但以 MCP 服务形式运行，绕过 Cowork 沙箱的两个限制：
+
 1. **网络出口管制** — skill 调 DashScope API 会被沙箱防火墙拦截，MCP 服务跑在沙箱外
 2. **内联图片** — 自动读取 `~/.claude/image-cache/` 中最新缓存，拖拽/粘贴/菜单上传均可正常工作（仅 macOS，Windows Cowork 不缓存内联图）
 
@@ -645,7 +647,7 @@ analyze_image(focus="图里报的什么错？")     # 自定义 prompt
 ### 常见问题
 
 | 现象 | 排查方向 |
-|------|----------|
+| ------ | ---------- |
 | 工具不显示 | 配置文件路径选错 / JSON 格式错误（用 `python3 -m json.tool` 校验） |
 | 工具报错 | `DASHSCOPE_API_KEY` 未设置 |
 | `ModuleNotFoundError` | 用 `pip3` 而非 `pip` |
@@ -654,7 +656,7 @@ analyze_image(focus="图里报的什么错？")     # 自定义 prompt
 ### skill vs MCP 怎么选
 
 | 场景 | 推荐 |
-|------|------|
+| ------ | ------ |
 | Claude Code (CLI)，给明确路径 | `skills/deepseek-vision`（零依赖） |
 | Cowork / Desktop，拖拽/粘贴内联图 | `dsvision-mcp`（唯一能用的） |
 | Cowork，给明确路径，不介意沙箱限制 | 两者均可 |

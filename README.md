@@ -9,7 +9,7 @@ A collection of launchers and configurators that point [Claude Code](https://cla
 ## Tools
 
 | Tool | What it does | Platform | Backend |
-|------|-------------|----------|---------|
+| ------ | ------------- | ---------- | --------- |
 | **[dsclaude](dsclaude)** | Claude Code CLI launcher | macOS / Linux | DeepSeek |
 | **[dsclaude.ps1](dsclaude.ps1)** | Claude Code CLI launcher | Windows | DeepSeek |
 | **[mmclaude](mmclaude)** | Claude Code CLI launcher | macOS / Linux | Xiaomi MiMo |
@@ -184,7 +184,7 @@ pwsh -File ./qwclaude.ps1 coding
 Picks the base URL, model lineup, and API-key variable per billing plan and model tier. Three model tiers:
 
 | Tier | Pay-as-you-go & Token Plan | Coding Plan |
-|------|---------------------------|-------------|
+| ------ | --------------------------- | ------------- |
 | **max** (default) | `qwen3.7-max` (flagship) | N/A |
 | **plus** | `qwen3.7-plus` (balanced, ~1/6 cost) | `qwen3.7-plus` (recommended) |
 | **flash** (subagent/haiku) | `qwen3.6-flash` | `qwen3.6-plus` |
@@ -229,12 +229,12 @@ Override the tiers with `GLM_MODEL` / `GLM_FLASH_MODEL`.
 export KIMI_API_KEY=sk-xxxxxxxxxxxxxxxxxx       # add to ~/.zshrc
 # Get your key at: https://platform.moonshot.cn/console/api-keys
 
-kmclaude                  # start on kimi-k2.6 (flagship)
+kmclaude                  # start on kimi-k3 (flagship)
 kmclaude fast             # start on kimi-k2.5 (cheaper / faster tier)
 kmclaude update           # git pull
 ```
 
-Uses the official Kimi Anthropic-compatible endpoint (`https://api.moonshot.cn/anthropic`). Main/opus/sonnet slots run `kimi-k2.6` while the haiku and subagent tiers run `kimi-k2.5`; `kmclaude fast` flips the main model to k2.5, and the other tier is exposed in the `/model` picker for mid-session switching. Unsets `ANTHROPIC_API_KEY` to avoid credential shadowing. Override the tiers with `KIMI_MODEL` / `KIMI_FLASH_MODEL` and the base URL with `KIMI_BASE_URL`.
+Uses the official Kimi Anthropic-compatible endpoint (`https://api.moonshot.cn/anthropic`). Main/opus/sonnet slots run `kimi-k3` while the haiku and subagent tiers run `kimi-k2.5`; `kmclaude fast` flips the main model to k2.5, and the other tier is exposed in the `/model` picker for mid-session switching. Unsets `ANTHROPIC_API_KEY` to avoid credential shadowing. Override the tiers with `KIMI_MODEL` / `KIMI_FLASH_MODEL` and the base URL with `KIMI_BASE_URL`.
 
 > Windows (PowerShell 7+): `pwsh -File ./kmclaude.ps1` (same flags).
 
@@ -345,7 +345,7 @@ Override the base URL with `GLM_BASE_URL` (default: `https://open.bigmodel.cn/ap
 
 ## kmclaude-desktop — Claude Desktop on Moonshot AI Kimi
 
-Same configurator, pre-filled for Moonshot Kimi. Reads `KIMI_API_KEY`. Configures `kimi-k2.6` + `kimi-k2.5`.
+Same configurator, pre-filled for Moonshot Kimi. Reads `KIMI_API_KEY`. Configures `kimi-k3` + `kimi-k2.5`.
 
 ```bash
 export KIMI_API_KEY=sk-xxxxxxxxxxxxxxxxxx
@@ -601,6 +601,7 @@ Works with any agent that loads `SKILL.md` (Claude Code, Cowork, etc.). Default 
 ## dsvision-mcp — Vision (MCP server)
 
 Same functionality as the skill above, but runs as an MCP server — bypassing two Cowork sandbox limitations:
+
 1. **Network egress** — the skill's DashScope API calls are firewalled inside Cowork's VM; the MCP server runs outside it
 2. **Inline images** — auto-picks the latest cached image from `~/.claude/image-cache/`, so drag-drop/paste/"+" workflows work (macOS only; Windows Cowork doesn't cache inline images to disk)
 
@@ -642,7 +643,7 @@ analyze_image(focus="What error is shown?")
 ### Troubleshooting
 
 | Symptom | Check |
-|---------|-------|
+| --------- | ------- |
 | Tool doesn't appear | Wrong config file path / invalid JSON (validate with `python3 -m json.tool`) |
 | Tool errors | `DASHSCOPE_API_KEY` not set |
 | `ModuleNotFoundError` | Use `pip3` not `pip` |
@@ -651,7 +652,7 @@ analyze_image(focus="What error is shown?")
 ### Skill vs MCP: which to use
 
 | Scenario | Use |
-|----------|-----|
+| ---------- | ----- |
 | Claude Code (CLI), explicit paths | `skills/deepseek-vision` (zero deps) |
 | Cowork / Desktop with inline images | `dsvision-mcp` (only option that works) |
 | Cowork with explicit paths, sandbox tweaks OK | either |

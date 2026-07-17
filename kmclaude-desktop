@@ -24,7 +24,7 @@ CONFIG_DIR="$HOME/Library/Application Support/Claude-3p/configLibrary"
 META="$CONFIG_DIR/_meta.json"
 ENTRY_NAME="kmclaude-desktop"
 AUTH_SCHEME="bearer"
-MAIN_MODEL="kimi-k2.6"
+MAIN_MODEL="kimi-k3"
 FAST_MODEL="kimi-k2.5"
 BASE_URL="${KIMI_BASE_URL:-https://api.moonshot.cn/anthropic}"
 
