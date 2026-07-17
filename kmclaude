@@ -5,8 +5,8 @@
 # Uses the official Kimi Anthropic-compatible endpoint:
 #   https://api.moonshot.cn/anthropic
 #
-# Reads KIMI_API_KEY from the environment first, then falls back to
-# ~/.zshrc / ~/.bashrc / ~/.bash_profile / ~/.profile if not already exported.
+# Reads KIMI_API_KEY (or MOONSHOT_API_KEY) from the environment first,
+# then falls back to ~/.zshrc / ~/.bashrc / ~/.bash_profile / ~/.profile.
 #
 # Quick start (no install needed):
 #   chmod +x kmclaude
@@ -62,10 +62,11 @@ if [ $# -gt 0 ] && [ "$1" = "update" ]; then
 fi
 
 API_KEY="$(resolve_api_key "KIMI_API_KEY")"
+[ -z "$API_KEY" ] && API_KEY="$(resolve_api_key "MOONSHOT_API_KEY")"
 if [ -z "$API_KEY" ]; then
-  echo "❌ KIMI_API_KEY not found." >&2
+  echo "❌ Neither KIMI_API_KEY nor MOONSHOT_API_KEY found." >&2
   echo "   Add one line to ~/.zshrc or ~/.bashrc:" >&2
-  echo "     export KIMI_API_KEY=sk-xxxxxxxxxxxxxxxxxx" >&2
+  echo "     export MOONSHOT_API_KEY=sk-xxxxxxxxxxxxxxxxxx" >&2
   echo "   Get your key at: https://platform.moonshot.cn/console/api-keys" >&2
   exit 1
 fi

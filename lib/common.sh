@@ -62,7 +62,10 @@ resolve_api_key() {
     candidate="$(extract_key_from_file "$f" "$var" || true)"
     if [ -n "${candidate:-}" ]; then printf '%s' "$candidate"; return 0; fi
   done
-  return 1
+  # Return 0 even when not found: callers use API_KEY="$(resolve_api_key ...)"
+  # under `set -e`, and a nonzero status would kill the launcher silently
+  # before its friendly "key not found" message can print.
+  return 0
 }
 
 # ---- export_anthropic_base: set the common ANTHROPIC_* env vars ---------
